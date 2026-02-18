@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="jest tests" tests="3" failures="0" errors="0" time="1.415">
-  <testsuite name="Task Controller" errors="0" failures="0" skipped="0" timestamp="2026-02-18T01:19:02" time="1.225" tests="3">
-    <testcase classname="Task Controller should return an empty list of tasks initially" name="Task Controller should return an empty list of tasks initially" time="0.075">
+<testsuites name="jest tests" tests="3" failures="0" errors="0" time="0.298">
+  <testsuite name="Task Controller" errors="0" failures="0" skipped="0" timestamp="2026-02-18T14:31:34" time="0.271" tests="3">
+    <testcase classname="Task Controller should return an empty list of tasks initially" name="Task Controller should return an empty list of tasks initially" time="0.012">
     </testcase>
-    <testcase classname="Task Controller should add a task" name="Task Controller should add a task" time="0.047">
+    <testcase classname="Task Controller should add a task" name="Task Controller should add a task" time="0.009">
     </testcase>
-    <testcase classname="Task Controller should return 400 for missing title" name="Task Controller should return 400 for missing title" time="0.011">
+    <testcase classname="Task Controller should return 400 for missing title" name="Task Controller should return 400 for missing title" time="0.001">
     </testcase>
   </testsuite>
 </testsuites>
