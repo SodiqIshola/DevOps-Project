@@ -1,0 +1,7 @@
+<testExecutions version="1">
+<file path="tests\taskController.test.js">
+<testCase name="Task Controller should return an empty list of tasks initially" duration="75" />
+<testCase name="Task Controller should add a task" duration="47" />
+<testCase name="Task Controller should return 400 for missing title" duration="11" />
+</file>
+</testExecutions>
