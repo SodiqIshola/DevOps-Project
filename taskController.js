@@ -171,10 +171,6 @@ exports.deleteName = (req, res) => {
  * UPDATE A NAME
  * Finds a name entry by ID and updates the name string.
  */
-/**
- * UPDATE A NAME
- * Finds a name entry by ID and updates the name string.
- */
 exports.updateName = (req, res) => {
   const { id } = req.params;
   const { name } = req.body; 
