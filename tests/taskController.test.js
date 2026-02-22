@@ -1,4 +1,8 @@
 
+// Jest: Checks your logic by actually running your code to see if it works 
+// (e.g., tests/taskController.test.js).
+
+
 const request = require('supertest');
 const express = require('express');
 const app = express();
