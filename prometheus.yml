@@ -16,7 +16,7 @@ scrape_configs:
   - job_name: "prometheus"
     # Defining which target to monitor
     static_configs:
-      # target are the apps prometheus will collect metrics from 
+      # target are the apps prometheus will collect metrics from itself. internal metrics 
       - targets: ["prometheus:9090"]
        # The label name is added as a label `label_name=<label_value>` to any timeseries scraped from this config.
         labels:
