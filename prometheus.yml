@@ -1,0 +1,32 @@
+# my global config
+# This section sets the general settings for prometheus 
+global:
+
+  # Set the scrape interval to every 15 seconds. Default is every 1 minute.
+  # Prometheus will collect metrics every 15 seconds from each target
+  scrape_interval: 15s 
+  evaluation_interval: 15s # Evaluate rules every 15 seconds. The default is every 1 minute.
+  # scrape_timeout is set to the global default (10s).
+
+
+# A scrape configuration tell prometheus what applications to monitor
+# Here it's Prometheus itself.
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: "prometheus"
+    # Defining which target to monitor
+    static_configs:
+      # target are the apps prometheus will collect metrics from 
+      - targets: ["prometheus:9090"]
+       # The label name is added as a label `label_name=<label_value>` to any timeseries scraped from this config.
+        labels:
+          app: "prometheus"
+
+  - job_name: "mynodeapp"
+    # Defining which target to monitor
+    static_configs:
+      # target are the apps prometheus will collect metrics 
+      - targets: ["mynodeapp:3000"]
+       # The label name is added as a label `label_name=<label_value>` to any timeseries scraped from this config.
+        labels:
+          app: "mynodeapp"
