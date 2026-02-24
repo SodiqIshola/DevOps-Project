@@ -1,13 +1,12 @@
 
-# Node Exporter collects CPU/RAM info -> Prometheus pulls it over the monitoring network.
-# Node-App collects Task/API info -> Prometheus pulls it over the monitoring network.
-# Grafana asks for data to draw a graph -> Prometheus sends it over the monitoring network.
 
 services:
 
-  # --- YOUR APP  ---
+  # -- NODE-APP: The Core Business Logic --
+  # This is your custom Node.js service pulled from Docker Hub.
+  # It processes tasks, generates Winston logs for Promtail, 
+  # and exports performance metrics for Prometheus.
   node-app:
-    # Docker will pull this from your Docker Hub account 
     image: sunky24/node-task-app:latest  
     container_name: node-app
     environment:
@@ -24,14 +23,15 @@ services:
     networks:
       - monitoring
 
-  # ---- PROMETHEUS: Collect metrics, store them in a time-series database
-  # let you query them with PromQL and triggers alert Prometheus pulls the 
-  # CPU/RAM metrics from node-exporter and Task/API info from node-app ----
+  # -- PROMETHEUS: The Metrics Engine --
+  # Collects and stores real-time data (CPU, RAM, API stats). 
+  # It "pulls" system metrics from node-exporter and application data 
+  # from node-app to enable graphing and alerting.
   prometheus:
     image: prom/prometheus:v3.9.1
     container_name: prometheus
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     ports:
       - "9090:9090"
@@ -50,8 +50,9 @@ services:
       - monitoring
     restart: unless-stopped
 
-  # ---- NODE-EXPORTER: A small agent that runs on a linux server that collect system-level metrics, 
-  # such as CPU, RAM, DISK, NETWORK and expose the in a format prometheus understand  ----
+  # -- NODE-EXPORTER: The Hardware Sensor --
+  # Translates low-level Linux system data (CPU, RAM, Disk) 
+  # into a format that Prometheus can understand.
   node-exporter:
     # Pulls the tool used to "export" Linux system/hardware stats
     image: prom/node-exporter:v1.10.2
@@ -85,13 +86,12 @@ services:
       - "3001:3000"
     volumes:
       # PERSISTENCE: Stores created dashboards, users, and plugins across restarts
-      - grafana_data:/var/lib/grafana   
-      # PROVISIONING: Automatically loads Datasources AND Dashboard Providers
-      # By mounting the parent folder, Grafana detects all sub-configs in one go
-      - ./provisioning:/etc/grafana/provisioning:ro   
-      # SOURCE FILES: The actual JSON files defining your dashboard layouts
-      # We mount these to a standard location that the 'dashboard-provider.yml' will point to
-      - ./dashboards:/var/lib/grafana/dashboards:ro  
+      - grafana_data:/var/lib/grafana  
+      # 1. PROVISIONING: Maps your datasource and dashboard provider YAML files
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro  
+      # 2. DASHBOARDS: Maps the actual JSON files that define the dashboard visuals
+      # Note: Ensure your provider.yaml in 'provisioning/dashboards' points to this internal path
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
     # HEALTH CHECK:Ensures Grafana only starts once the data source (Prometheus&loki) are ready
     depends_on:
       # Wait until Prometheus and loki passes its health check
@@ -117,7 +117,7 @@ services:
       # Persistent storage for your log data
       - loki_data:/loki
       # Mount your local loki-config.yaml into the container
-      - ./loki-config.yaml:/etc/loki/local-config.yaml 
+      - ./infra/loki/loki-config.yaml:/etc/loki/local-config.yaml 
     # This command tells Loki to look at the file we just mounted
     command: -config.file=/etc/loki/local-config.yaml
     # -- HEALTHCHECK: Verifies Loki is ready to receive data --
@@ -154,7 +154,7 @@ services:
       - "9080:9080"   
     volumes:
       # CONFIGURATION: Mounts your local YAML settings into the container's default config path
-      - ./promtail-config.yaml:/etc/promtail/config.yml:ro     
+      - ./infra/promtail/promtail-config.yaml:/etc/promtail/config.yml:ro     
       # DATA SOURCE: Mounts your Node.js app's log folder into Promtail's search path
       # ':ro' (Read-Only) ensures Promtail can read logs but cannot delete or modify them
       - ./app-logs:/var/log/node-app:ro    

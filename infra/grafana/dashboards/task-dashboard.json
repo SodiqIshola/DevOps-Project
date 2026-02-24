@@ -1,0 +1,32 @@
+{
+  "title": "Unified App & System Monitor",
+  "uid": "unified-001",
+  "panels": [
+    {
+      "type": "gauge",
+      "title": "Current Active Tasks",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" }, 
+      "targets": [{ "expr": "current_tasks_total" }],
+      "fieldConfig": { "defaults": { "min": 0, "max": 100 } }
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU Usage (%)",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [{ "expr": "100 - (avg(rate(node_cpu_seconds_total{mode='idle'}[2m])) * 100)" }],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 } }
+    },
+    {
+      "type": "gauge",
+      "title": "Memory Usage",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [{ "expr": "node_memory_Active_bytes / node_memory_MemTotal_bytes * 100" }],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 } }
+    }
+  ],
+  "schemaVersion": 36
+}
+
