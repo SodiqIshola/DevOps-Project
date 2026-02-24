@@ -1,0 +1,18 @@
+
+{
+  "title": "Node Task App Monitor",
+  "panels": [
+    {
+      "type": "gauge",
+      "title": "Current Active Tasks",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" }, 
+      "targets": [
+        { "expr": "current_tasks_total" }
+      ],
+      "fieldConfig": {
+        "defaults": { "min": 0, "max": 100 }
+      }
+    }
+  ],
+  "schemaVersion": 36
+}

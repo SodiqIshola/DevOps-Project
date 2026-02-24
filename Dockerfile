@@ -50,13 +50,25 @@ COPY --from=security /app/scan-status.txt ./scan-status.txt
 # Define environment variable
 ENV NODE_ENV=production
 
-# Copy only the necessary production files
+# Copy package files and install prod dependencies
 COPY --from=builder /app/package*.json ./
 RUN npm ci --only=production
 COPY --from=builder /app/dist ./dist
 
-# Expose the port your app runs on
+# --- PERMISSIONS & LOGS SETUP ---
+# Create the logs directory explicitly
+# Change ownership to the 'node' user (standard in official images)
+# Ensures Winston has permission to write 'app.log' inside the container
+RUN mkdir -p /app/logs && chown -R node:node /app/logs
+
+# Switch to the non-root 'node' user for security (best practice)
+USER node
+
+# Expose the app and metrics ports
 EXPOSE 3000
-# Start the application
-CMD ["node", "dist/index.js"]
+
+# Start the application using the bundled code
+CMD ["node", "dist/bundle.js"]
+
+
 

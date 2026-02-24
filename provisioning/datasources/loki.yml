@@ -1,0 +1,19 @@
+# -- LOKI DATASOURCE PROVISIONING --
+# This file automatically connects Grafana to your Loki log database
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    # Defines the type of data (logs)
+    type: loki
+    # 'proxy' means Grafana (the server) will fetch the data from Loki
+    access: proxy
+    # Uses the Docker service name 'loki' defined in your docker-compose.yml
+    url: http://loki:3100
+    # CRITICAL: This unique ID links your JSON dashboard panels to this source
+    uid: Loki 
+    # SET TO FALSE: Usually, Prometheus is the default for metrics. 
+    # If true, Loki would be the first option in every new panel you create.
+    isDefault: false
+    # ALLOWS EDITING: Let's you tweak the connection settings inside the Grafana UI
+    editable: true

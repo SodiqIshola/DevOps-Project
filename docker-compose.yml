@@ -1,0 +1,185 @@
+
+# Node Exporter collects CPU/RAM info -> Prometheus pulls it over the monitoring network.
+# Node-App collects Task/API info -> Prometheus pulls it over the monitoring network.
+# Grafana asks for data to draw a graph -> Prometheus sends it over the monitoring network.
+
+services:
+
+  # --- YOUR APP  ---
+  node-app:
+    # Docker will pull this from your Docker Hub account 
+    image: sunky24/node-task-app:latest  
+    container_name: node-app
+    environment:
+      - TZ=America/Toronto # Tells the Node process exactly which zone to use
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    volumes:
+    # Map a local folder to the app's internal logs folder
+      - ./app-logs:/app/logs
+    # Optional: ensure it always checks for a newer version on Docker Hub
+    # disable this when you using a local docker image due to login issue
+    pull_policy: always
+    networks:
+      - monitoring
+
+  # ---- PROMETHEUS: Collect metrics, store them in a time-series database
+  # let you query them with PromQL and triggers alert Prometheus pulls the 
+  # CPU/RAM metrics from node-exporter and Task/API info from node-app ----
+  prometheus:
+    image: prom/prometheus:v3.9.1
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    # --- ADDED HEALTHCHECK: to see know when Prometheus is actually ready to 
+    # handle data and not just running. ---
+    healthcheck:
+      # Use curl (built into the image) to ping the internal status page
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      interval: 10s    # Check every 10 seconds
+      timeout: 5s      # Give up if no response in 5s
+      retries: 3       # Try 3 times before calling it "unhealthy"
+      start_period: 5s # Give it 5s to boot up before the first check
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  # ---- NODE-EXPORTER: A small agent that runs on a linux server that collect system-level metrics, 
+  # such as CPU, RAM, DISK, NETWORK and expose the in a format prometheus understand  ----
+  node-exporter:
+    # Pulls the tool used to "export" Linux system/hardware stats
+    image: prom/node-exporter:v1.10.2
+    container_name: node-exporter
+    # Ensures the monitor starts automatically if the computer reboots
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    volumes:
+      # These 3 lines allow the container to "look out" at the host machine's hardware
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      # Tells the tool exactly where to look for the host's hardware files
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      # Prevents "junk" data from virtual Docker filesystems from filling up your graphs
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks: [monitoring]
+
+
+  # -- GRAFANA: Visualization & Monitoring UI --
+  grafana:
+    # Use the official production-ready image
+    image: grafana/grafana:12.3.3
+    container_name: grafana
+    # Map to 3001 to avoid port collisions with common Node.js defaults
+    ports:
+      - "3001:3000"
+    volumes:
+      # PERSISTENCE: Stores created dashboards, users, and plugins across restarts
+      - grafana_data:/var/lib/grafana   
+      # PROVISIONING: Automatically loads Datasources AND Dashboard Providers
+      # By mounting the parent folder, Grafana detects all sub-configs in one go
+      - ./provisioning:/etc/grafana/provisioning:ro   
+      # SOURCE FILES: The actual JSON files defining your dashboard layouts
+      # We mount these to a standard location that the 'dashboard-provider.yml' will point to
+      - ./dashboards:/var/lib/grafana/dashboards:ro  
+    # HEALTH CHECK:Ensures Grafana only starts once the data source (Prometheus&loki) are ready
+    depends_on:
+      # Wait until Prometheus and loki passes its health check
+      loki:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
+    # NETWORK: Join the isolated monitoring bridge to communicate with Loki/Prometheus
+    networks:
+      - monitoring
+    # RESTART POLICY: Ensures the UI comes back up if the Docker daemon or host reboots
+    restart: unless-stopped
+
+
+  # -- LOKI: 
+  # Loki is the "Log Database" - it stores and indexes your log data
+  # NOTE: 
+  loki:
+    image: grafana/loki:3.6.5
+    container_name: loki
+    # Mount necessary volumes
+    volumes:
+      # Persistent storage for your log data
+      - loki_data:/loki
+      # Mount your local loki-config.yaml into the container
+      - ./loki-config.yaml:/etc/loki/local-config.yaml 
+    # This command tells Loki to look at the file we just mounted
+    command: -config.file=/etc/loki/local-config.yaml
+    # -- HEALTHCHECK: Verifies Loki is ready to receive data --
+    healthcheck:
+      # "CMD" runs the binary directly, bypassing the need for /bin/sh (which is missing)
+      # "-health" is the built-in flag that checks the /ready endpoint internally
+      test: ["CMD", "/usr/bin/loki", "-health"]    
+      # How often to run the check
+      interval: 10s    
+      # How long to wait for the check to respond before failing
+      timeout: 5s    
+      # How many consecutive failures before marking the container "unhealthy"
+      retries: 5   
+      # Give Loki time to boot up before the first health check starts
+      start_period: 15s
+    ports:
+      - "3100:3100"  # Exposes Loki API and web interface  
+    # Ensures that if your computer reboots or Docker crashes, Loki starts back up automatically.
+    restart: unless-stopped
+    networks:
+      - monitoring
+
+  
+  # -- PROMTAIL: The Log Shipper (Agent) --
+  # It "tails" (reads) log files and pushes them to Loki's API
+  promtail:
+    # Uses the official latest image from Grafana's repository
+    image: grafana/promtail:3.6.5
+    # Static name for easy management via 'docker stop/restart promtail'
+    container_name: promtail 
+    environment:
+      - TZ=America/Toronto # Tells the Node process exactly which zone to use
+    ports:
+      - "9080:9080"   
+    volumes:
+      # CONFIGURATION: Mounts your local YAML settings into the container's default config path
+      - ./promtail-config.yaml:/etc/promtail/config.yml:ro     
+      # DATA SOURCE: Mounts your Node.js app's log folder into Promtail's search path
+      # ':ro' (Read-Only) ensures Promtail can read logs but cannot delete or modify them
+      - ./app-logs:/var/log/node-app:ro    
+      # POSITIONS: Persists Promtail's "bookmark" so if it restarts, it doesn't resend old logs
+      # This prevents duplicate logs in your Grafana dashboards
+      - promtail_data:/tmp/   
+    # ENTRYPOINT: Explicitly tells Promtail which configuration file to execute on startup
+    command: -config.file=/etc/promtail/config.yml 
+    # NETWORK: Joins the 'monitoring' bridge to talk to the 'loki' container via its service name
+    networks:
+      - monitoring   
+    # RESILIENCE: Automatically restarts the agent if the Docker daemon or the host reboots
+    restart: unless-stopped
+
+
+# Define the isolated "room" where all these containers can talk to each other
+networks:
+  monitoring:
+    driver: bridge
+
+
+# Define the "hard drives" that keep data safe even if containers are deleted
+volumes:
+  prometheus_data:
+  grafana_data:
+  promtail_data:
+  loki_data:
+

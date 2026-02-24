@@ -1,0 +1,24 @@
+
+# provisioning/datasources/datasource.yml
+
+
+# -- PROMETHEUS DATASOURCE PROVISIONING --
+# This file tells Grafana how to connect to your Prometheus metrics database
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    # Specifies that this source provides time-series metrics
+    type: prometheus
+    # 'proxy' means Grafana's backend will handle the request to Prometheus
+    access: proxy
+    # NETWORKING: Uses the Docker service name 'prometheus' defined in your compose file
+    url: http://prometheus:9090
+    # IDENTIFIER: Matches the 'uid' used inside your dashboard JSON files
+    uid: Prometheus
+    # SET TO TRUE: Makes Prometheus the primary source for all new graphs and panels
+    isDefault: true
+    # UI CONTROL: Allows you to see and test the connection within the Grafana settings
+    editable: true
+
+
