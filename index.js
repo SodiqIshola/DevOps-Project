@@ -7,7 +7,11 @@ const app = express();
 const logger = require('./logger');  // Import your custom logger
 logger.info('Server running on http://localhost:3000');
 
+
+// Middleware to let the app read JSON data sent in a request body
 app.use(express.json());
+
+
 
 // --- TASK API ROUTES ---
 
@@ -46,81 +50,123 @@ app.get('/', (req, res) => {
 
 
 
-// --- PROMETHEUS SETUP ---
+// --- BLOCK 1: TASK EVENT LOGGING (Keep this for app.log) ---
+// This section watches every request and logs "PUT", "POST", and "DELETE" actions
+app.use((req, res, next) => {
+  const { method, url, body } = req;
 
-// Create a Registry to store our metrics
+  // Only run this if someone is creating, updating, or deleting data
+  if (['POST', 'PUT', 'DELETE'].includes(method)) {
+    // 1. Log detailed info (Who, What, When) to our app.log file
+    logger.info(`Task Event: ${method} on ${url}`, {
+      eventType: 'CRUD_OPERATION',
+      method: method,
+      endpoint: url,
+      payload: body, // This shows the data being added or changed
+    });
+
+  }
+  next(); // Move on to the actual API routes below
+});
+
+
+
+
+
+
+// --- PROMETHEUS SETUP & CUSTOM METRICS ---
+// --- PROMETHEUS SETUP & CUSTOM METRICS ---
+
+// Create a Registry to store all our metrics in one place
 const register = new client.Registry();
 
-// Enable default metrics (CPU, Memory, etc.) to be tracked automatically
+// Enable default metrics like CPU and Memory tracking
 client.collectDefaultMetrics({ register });
 
-// Define a GAUGE to track the current number of tasks
-// A Gauge is perfect here because the count goes UP (add) and DOWN (delete)
+// GAUGE: Tracks the current count of tasks (goes up and down)
 const taskGauge = new client.Gauge({
   name: 'current_tasks_total',
   help: 'The total number of tasks currently in the system',
 });
 register.registerMetric(taskGauge);
 
-// Define a COUNTER to track how many total requests hit our API
+// COUNTER 1: Tracks EVERY request hitting the server (General Traffic)
 const httpRequestCounter = new client.Counter({
   name: 'http_requests_total',
   help: 'Total number of HTTP requests received',
-  // FIX: Change 'label_names' to 'labelNames'
-  labelNames: ['method', 'route', 'status'] 
+  labelNames: ['method', 'route', 'status'] // Matches your middleware payload
 });
-
 register.registerMetric(httpRequestCounter);
 
+// COUNTER 2: Tracks ONLY data-modifying actions (PUT/DELETE/POST)
+const taskOperationCounter = new client.Counter({
+  name: 'task_operations_total',
+  help: 'Total number of Create, Update, and Delete actions',
+  labelNames: ['method', 'route', 'status'] // Now includes 'status' for better Grafana charts
+});
+register.registerMetric(taskOperationCounter);
+
+
+// THE SCRAPE ENDPOINT: This is where Prometheus "reads" your data
+app.get('/metrics', async (req, res) => {
+  res.setHeader('Content-Type', register.contentType);
+  res.send(await register.metrics()); // Use await because register.metrics() is a promise
+});
 
 
 
 
-// This runs on every single request
-// -- MONITORING MIDDLEWARE: Updates Prometheus metrics for every request --
-// -- MONITORING MIDDLEWARE: Modern Optional Chaining Version --
+// --- COMBINED MONITORING & EVENT LOGGING ---
 app.use((req, res, next) => {
-  // OPTIONAL CHAINING: Safely access .length even if taskController or .tasks is null/undefined
-  const taskCount = taskController?.tasks?.length;
+  const { method, url, body } = req;
 
+  // GAUGE: Update the live task count immediately
+  const taskCount = taskController?.tasks?.length;
   if (taskCount !== undefined) {
-    // Updates the Prometheus Gauge with the current count
     taskGauge.set(taskCount);
   }
 
-  // EVENT LISTENER: Triggers after the response is sent to the client
+  // ATTACH DATA: Save the payload (body) to the "res" object 
+  // This "carries" the data forward so we can use it in the 'finish' event later
+  res.locals.payload = body;
+
+  // FINISH LISTENER: This waits for the server to finish the task
   res.on('finish', () => {
-    // INCREMENT COUNTER: Logs the specific request metrics
+    
+    // Create one "Final Package" of information
+    const finalReport = {
+      method: method,
+      route: req.route?.path ?? url,
+      status: res.statusCode, // 200 (Success) or 500 (Error)
+      dataSent: res.locals.payload // The information they Put, Updated, or Deleted
+    };
+
+    // UPDATE PROMETHEUS: Add +1 to the general history
     httpRequestCounter.inc({ 
-      method: req.method, 
-      // OPTIONAL CHAINING: Safely access route path or default to raw path
-      route: req.route?.path ?? req.path, 
-      status: res.statusCode 
+      method: finalReport.method, 
+      route: finalReport.route, 
+      status: finalReport.status 
     });
 
-    // MODULAR LOGGER: Send structured logs to Loki via your Winston service
-    logger.info('HTTP Request processed', { 
-      method: req.method, 
-      path: req.path, 
-      status: res.statusCode 
+    // UPDATE TASK COUNTER: Add +1 ONLY for data changes (PUT, DELETE, POST)
+    if (['POST', 'PUT', 'DELETE'].includes(method)) {
+      taskOperationCounter.inc({ 
+        method: finalReport.method, 
+        route: finalReport.route, 
+        status: finalReport.status 
+      });
+    }
+
+    // SINGLE SUMMARY LOG: This writes one perfect line to your app.log file
+    logger.info(`TASK COMPLETED: ${method} on ${url}`, {
+      ...finalReport, // Includes method, route, status, and the data (payload)
+      timestamp: new Date().toISOString() // Adds the exact time
     });
   });
-  
-  // Proceed to the next middleware or route handler
-  next();
+
+  next(); // Move to the routes
 });
 
-
-
-
-
-// --- THE SCRAPE ENDPOINT ---
-
-// Prometheus will "scrape" this route every 15 seconds
-app.get('/metrics', async (req, res) => {
-  res.setHeader('Content-Type', register.contentType);
-  res.send(await register.metrics());
-});
 
 const port = 3000;
 app.listen(port, () => {

@@ -1,5 +1,5 @@
 # STAGE 1: Builder
-FROM node:25-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 # Copies only package.json and package-lock.json firs
@@ -12,8 +12,9 @@ COPY . .
 RUN npm run build
 
 
+
 # STAGE 2: Security Scan (Uses Snyk to post to web dashboard)
-FROM node:25-alpine AS security
+FROM node:22-alpine AS security
 WORKDIR /app
 
 # Copy everything from builder to ensure Snyk scans the full context (code + lockfiles)
@@ -30,7 +31,7 @@ ARG CACHE_BUST=1
 # This prevents the SNYK_TOKEN from being stored in the image layers
 RUN --mount=type=secret,id=snyk_token \
     SNYK_TOKEN=$(cat /run/secrets/snyk_token) \
-    snyk container monitor node:25-alpine \
+    snyk container monitor node:22-alpine \
                            --file=Dockerfile \
                            --project-name=my-unified-node-app \
                            --exclude-base-image-vulns
@@ -39,8 +40,9 @@ RUN --mount=type=secret,id=snyk_token \
 # Create the stamp file to force Stage 3 to wait for this stage
 RUN echo "scan-complete" > /app/scan-status.txt
 
+
 # STAGE 3: Final Production Image
-FROM node:25-alpine AS runner
+FROM node:22-alpine AS runner
 # Set working directory inside container and All commands will run inside /app
 WORKDIR /app
 
