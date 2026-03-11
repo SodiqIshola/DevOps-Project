@@ -1,0 +1,39 @@
+# -----------------------------------------------------------------------------
+# INGRESS (THE SMART TRAFFIC CONTROLLER)
+# Importance: In a professional setup, you don't want users accessing your 
+# cluster via "backdoor" NodePorts (like :32000). The Ingress acts as a 
+# "Reverse Proxy" and "Load Balancer" that sits at the very edge of your 
+# cluster. It receives all incoming web traffic on standard ports (80/443), 
+# reads the URL path (like /tasks or /names), and "decides" which internal 
+# Service should handle that specific request. This allows you to host 
+# multiple different apps or APIs under a single IP address or Domain.
+# -----------------------------------------------------------------------------
+apiVersion: networking.k8s.io/v1     # Standard API for managing network traffic rules
+kind: Ingress                        # Defines this as a high-level routing object
+metadata:
+  name: node-app-ingress             # The unique name for this "Front Door" configuration
+  namespace: app                     # CRITICAL: Must be in the same namespace as the Service
+  annotations:                       # Extra "instructions" for the Ingress Controller
+    # Rewrite Rule: This is crucial! It tells NGINX: "When a user visits /tasks, 
+    # strip that word off before sending the request to the Node.js app." 
+    # This means your app code can just listen on "/" instead of "/tasks".
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx            # Tells K8s to use the NGINX software to run these rules
+  rules:                             # The list of "logic" rules for incoming traffic
+  - http:                            # Defines rules for standard Web (HTTP) traffic
+      paths:                         # A list of URL paths to watch for
+      - path: /names                 # Rule 1: If the URL is http://localhost/names...
+        pathType: Prefix             # ...match anything that starts with this word...
+        backend:
+          service:
+            name: node-app-service   # ...and send it to this specific Service.
+            port:
+              number: 80             # Use the port defined in your Service file.
+      - path: /tasks                 # Rule 2: If the URL is http://localhost/tasks...
+        pathType: Prefix             # ...match this specific path prefix...
+        backend:
+          service:
+            name: node-app-service   # ...and route it to the same (or a different) backend.
+            port:
+              number: 80             # Ensure this matches your Service's "port" field.

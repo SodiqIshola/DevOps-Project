@@ -1,0 +1,150 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": null,
+  "panels": [
+    {
+      "type": "graph",
+      "title": "OTel Accepted Spans Rate",
+      "targets": [
+        {
+          "expr": "rate(otelcol_receiver_accepted_spans{receiver=\"otlp\", job=\"otel-collector-internal\"}[1m])",
+          "legendFormat": "{{receiver}} spans/sec",
+          "refId": "A"
+        }
+      ],
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "lines": true,
+      "linewidth": 2,
+      "fill": 1
+    },
+    {
+      "type": "graph",
+      "title": "OTel Refused Spans Rate",
+      "targets": [
+        {
+          "expr": "rate(otelcol_receiver_refused_spans{receiver=\"otlp\", job=\"otel-collector-internal\"}[1m])",
+          "legendFormat": "{{receiver}} refused/sec",
+          "refId": "B"
+        }
+      ],
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "lines": true,
+      "linewidth": 2,
+      "fill": 1
+    },
+    {
+      "type": "graph",
+      "title": "OTel Exported Spans to Tempo (Rate)",
+      "targets": [
+        {
+          "expr": "rate(otelcol_exporter_sent_spans{exporter=\"otlp/tempo\", job=\"otel-collector-internal\"}[1m])",
+          "legendFormat": "tempo spans/sec",
+          "refId": "C"
+        }
+      ],
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "lines": true,
+      "linewidth": 2,
+      "fill": 1
+    },
+    {
+      "type": "graph",
+      "title": "OTel Exported Spans to Jaeger (Rate)",
+      "targets": [
+        {
+          "expr": "rate(otelcol_exporter_sent_spans{exporter=\"otlp/jaeger\", job=\"otel-collector-internal\"}[1m])",
+          "legendFormat": "jaeger spans/sec",
+          "refId": "D"
+        }
+      ],
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "lines": true,
+      "linewidth": 2,
+      "fill": 1
+    },
+    {
+      "type": "graph",
+      "title": "OTel Failed Exported Spans Rate",
+      "targets": [
+        {
+          "expr": "rate(otelcol_exporter_send_failed_spans{job=\"otel-collector-internal\"}[1m])",
+          "legendFormat": "{{exporter}} failures/sec",
+          "refId": "E"
+        }
+      ],
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "lines": true,
+      "linewidth": 2,
+      "fill": 1
+    },
+    {
+      "type": "graph",
+      "title": "OTel Batch Size Histogram",
+      "targets": [
+        {
+          "expr": "rate(otelcol_processor_batch_batch_send_size_bucket{job=\"otel-collector-internal\"}[1m])",
+          "legendFormat": "le={{le}}",
+          "refId": "F"
+        }
+      ],
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "lines": true,
+      "linewidth": 2,
+      "fill": 1
+    },
+    {
+      "type": "trace",
+      "title": "Jaeger Traces",
+      "targets": [
+        {
+          "query": "",
+          "refId": "G"
+        }
+      ],
+      "datasource": { "type": "jaeger", "uid": "jaeger" },
+      "showTraceID": true,
+      "showHistogram": true
+    },
+    {
+      "type": "trace",
+      "title": "Tempo Traces",
+      "targets": [
+        {
+          "query": "",
+          "refId": "H"
+        }
+      ],
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "showTraceID": true,
+      "showHistogram": true
+    },
+    {
+      "type": "trace",
+      "title": "Tempo Top Operations",
+      "targets": [
+        {
+          "query": "",
+          "refId": "I"
+        }
+      ],
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "showTraceID": false,
+      "showHistogram": true
+    }
+  ],
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": ["tempo", "jaeger", "otel", "collector"],
+  "templating": { "list": [] },
+  "time": { "from": "now-30m", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "OTel Collector Metrics with Jaeger and Tempo Traces",
+  "uid": "tempo-jaeger-collector-metrics",
+  "version": 4
+}

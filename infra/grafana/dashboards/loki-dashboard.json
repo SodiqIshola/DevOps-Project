@@ -1,0 +1,123 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "title": "Log Volume",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "loki", "uid": "Loki" },
+      "targets": [
+        {
+          "expr": "count_over_time({job=\"$job\"}[1m])",
+          "legendFormat": "logs/min"
+        }
+      ]
+    },
+    {
+      "title": "Error Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "loki", "uid": "Loki" },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({job=\"$job\"} |= \"error\" [5m]))",
+          "legendFormat": "errors"
+        }
+      ]
+    },
+    {
+      "title": "HTTP Status Codes",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 6 },
+      "datasource": { "type": "loki", "uid": "Loki" },
+      "targets": [
+        {
+          "expr": "sum by (status) (count_over_time({job=\"$job\"} | json [5m]))",
+          "legendFormat": "{{status}}"
+        }
+      ]
+    },
+    {
+      "title": "Top Endpoints",
+      "type": "barchart",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 6 },
+      "datasource": { "type": "loki", "uid": "Loki" },
+      "targets": [
+        {
+          "expr": "topk(10, sum by (path) (count_over_time({job=\"$job\"} | json [5m])))",
+          "legendFormat": "{{path}}"
+        }
+      ]
+    },
+    {
+      "title": "Log Level Distribution",
+      "type": "piechart",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 12 },
+      "datasource": { "type": "loki", "uid": "Loki" },
+      "targets": [
+        {
+          "expr": "sum by (level) (count_over_time({job=\"$job\"} | json [1h]))",
+          "legendFormat": "{{level}}"
+        }
+      ]
+    },
+    {
+      "title": "Average Request Duration (ms)",
+      "type": "gauge",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 12 },
+      "datasource": { "type": "loki", "uid": "Loki" },
+      "targets": [
+        {
+          "expr": "avg_over_time({job=\"$job\"} | json | unwrap duration_ms [$__interval])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 200 },
+              { "color": "red", "value": 500 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Live Application Logs",
+      "type": "logs",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 18 },
+      "datasource": { "type": "loki", "uid": "Loki" },
+      "targets": [
+        {
+          "expr": "{job=\"$job\"} | json"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      }
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "job",
+        "type": "query",
+        "datasource": { "type": "loki", "uid": "Loki" },
+        "definition": "label_values(job)",
+        "query": "label_values(job)",
+        "refresh": 1
+      }
+    ]
+  },
+  "refresh": "5s",
+  "time": { "from": "now-1h", "to": "now" },
+  "title": "Node.js Observability (Loki Logs)",
+  "uid": "node-loki-observability",
+  "schemaVersion": 38
+}

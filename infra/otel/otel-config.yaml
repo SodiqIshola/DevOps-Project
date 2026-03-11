@@ -1,0 +1,91 @@
+# Extensions provide extra capabilities outside the main data pipeline.
+extensions:
+  # HEALTH CHECK: Used by Docker Compose to verify the container is "Healthy"
+  health_check:
+    # 0.0.0.0 allows the check to run from within the Docker network
+    endpoint: 0.0.0.0:13133
+
+# --- SECTION 1: RECEIVERS (The Inbound Doors) ---
+# This is how the OpenTelemetry Collector accepts data from your applications.
+receivers:
+  otlp:
+    protocols:
+      # gRPC (4317): High-performance intake used by advanced backend SDKs.
+      # While Jaeger listens here, your app is currently bypassing this for HTTP.
+      grpc:
+        endpoint: 0.0.0.0:4317  
+      # HTTP (4318): THE ACTIVE PORT for your setup.
+      # This is specifically where your application ('tracer.js') sends traces.
+      # The OTLPTraceExporter in your code targets this endpoint to upload data.
+      http:
+        endpoint: 0.0.0.0:4318
+
+
+# --- SECTION 2: EXPORTERS (The Outbound Doors) ---
+# After receiving and processing traces, the Collector "ships" them to these destinations.
+exporters:  
+  # Print logs to console/stdout fo debugging
+  debug:
+  # Shows full EMF JSON structure in console
+    verbosity: detailed
+
+  # JAEGER EXPORTER: Sends traces to the Jaeger v2 container for storage and visualization.
+  otlp/jaeger:
+    # Uses Jaeger's internal OTLP gRPC port (4317).
+    # Since both are in the 'monitoring' network, we use the container name "jaeger".
+    endpoint: "jaeger:4317" 
+    tls:
+      # Required because we are not using SSL/TLS certificates for local Docker traffic.
+      # Setting 'insecure' to true allows the Collector to talk to Jaeger over plain HTTP/gRPC.
+      insecure: true
+  # TEMPO EXPORTER: Sends traces to the Grafana Tempo container.
+  # This allows you to compare trace data across different backends.
+  otlp/tempo:
+    # Uses Tempo's internal OTLP gRPC port (matching the 'tempo' container name).
+    endpoint: "tempo:4317"
+    tls:
+      # Also set to insecure for easy local communication within your Docker network.
+      insecure: true
+
+
+# --- SECTION 3: PROCESSORS (The Data Cleanup) ---
+# This is the "Assembly Line" where data is organized before being shipped out.
+processors:
+  # BATCHING: Instead of sending 1 trace at a time (which is slow), we group them.
+  # This acts like a "Post Office" that waits for 1000 letters before sending the truck.
+  batch:
+    # 'send_batch_size': Wait until we have 1000 traces to send them all at once.
+    # This significantly reduces CPU usage and makes the database (Badger) happy.
+    send_batch_size: 1000
+    # 'timeout': If we don't get 1000 traces within 1 second, send whatever we have anyway.
+    # This ensures your Jaeger UI doesn't feel "laggy" during low traffic.
+    timeout: 1s
+
+# --- SECTION 4: SERVICE (The Linking Logic) ---
+# This is the "Brain" of the Collector that powers and monitors everything.
+service:
+  # ACTIVATION: Links the 'health_check' extension above to the active service lifecycle.
+  extensions: [health_check] 
+
+  # TELEMETRY: Configures how the Collector exposes its OWN internal performance data.
+  telemetry:
+    metrics:
+      address: "0.0.0.0:8888" # Standard syntax for Collector images
+
+  # PIPELINES: This is the "Glue" that connects your Receivers, Processors, and Exporters.
+  pipelines:
+    # TRACES PIPELINE: The specific path created for your application's tracing data.
+    traces:
+      # 1. RECEIVERS: Pull data in from your Node.js app (using Port 4318/HTTP).
+      receivers: [otlp]  
+      # 2. PROCESSORS: Run the data through the 'batch' logic to group it efficiently.
+      # This happens in the Collector's memory before the data hits the disk.
+      processors: [batch] 
+      # 3. EXPORTERS: Copy and ship the data to BOTH backends simultaneously.
+      # - 'otlp/jaeger': Sends a copy to your persistent Badger database.
+      # - 'otlp/tempo': Sends a copy to Grafana Tempo for unified dashboarding.
+      exporters: [otlp/jaeger, otlp/tempo]
+
+
+
+

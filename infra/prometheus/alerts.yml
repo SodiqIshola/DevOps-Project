@@ -1,0 +1,22 @@
+groups:
+  - name: jaeger_health_alerts
+    rules:
+      # ALERT: Jaeger is dropping spans (Badger is likely too slow or disk is full)
+      - alert: JaegerSpanDrops
+        expr: rate(otelcol_exporter_enqueue_failed_spans[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Jaeger is losing traces!"
+          description: "The Badger exporter is failing to save spans. Check container logs for 'disk full' or 'permission' errors."
+
+      # ALERT: High Memory Usage (Batch processor is getting backed up)
+      - alert: JaegerHighMemory
+        expr: otelcol_process_runtime_heap_alloc_bytes > 500000000 # 500MB Example
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Jaeger memory usage high"
+          description: "The internal batch queue is growing. You may need to increase the 'send_batch_size' in your config."

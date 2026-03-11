@@ -1,0 +1,36 @@
+# -----------------------------------------------------------------------------
+# NETWORK POLICY (POD FIREWALL)
+# Purpose: Controls which traffic can enter (Ingress) or leave (Egress) the Pod.
+# Importance: This follows the "Principle of Least Privilege." It locks down 
+# your app so that only authorized sources (like your Ingress Controller) 
+# can talk to it, preventing other potentially compromised Pods in the 
+# cluster from attacking your Node.js application.
+# -----------------------------------------------------------------------------
+apiVersion: networking.k8s.io/v1     # Standard API for network security rules
+kind: NetworkPolicy                  # Defines this as a "Pod Firewall" object
+metadata:
+  name: node-app-allow-ingress       # Unique name for this security rule
+  namespace: app                     # CRITICAL: Policies only protect Pods in their own namespace
+spec:
+  podSelector:                       # The "Target": Which Pods does this rule protect?
+    matchLabels:
+      app: node-app                  # Applies to any Pod labeled "app: node-app"
+  policyTypes:                       # Specifies that we are controlling incoming traffic
+  - Ingress
+  ingress:                           # The "Allow List" for incoming connections
+  - from:
+    # 1. ALLOW FROM INGRESS CONTROLLER
+    # This matches the Pods running your NGINX Ingress Controller.
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: ingress-nginx
+    # 2. ALLOW EXTERNAL TRAFFIC (For NodePort)
+    # Since NodePort traffic comes from outside the cluster, it often 
+    # appears as "external" IP traffic. Leaving an empty block {} in 
+    # the 'from' section (with caution) or specifying IP blocks allows 
+    # the "backdoor" NodePort to function for your future testing.
+    - ipBlock:
+        cidr: 0.0.0.0/0              # Allows traffic from any IP (required for NodePort)
+    ports:                           # Specifies which port is open for these sources
+    - protocol: TCP
+      port: 3000                     # Opens the port your Node.js app listens on

@@ -1,0 +1,28 @@
+# -----------------------------------------------------------------------------
+# LIMIT RANGE (The "Automatic Guardrails")
+# Purpose: Automatically assigns default resources and sets min/max limits 
+# for any individual container created in this namespace.
+# Importance: This is your "Default Safety Net." It ensures that no single 
+# container is too small to run or too large to hog the entire namespace budget. 
+# It also forces developers to follow the resource patterns you've established.
+# -----------------------------------------------------------------------------
+apiVersion: v1                      # Standard API for core resource management
+kind: LimitRange                    # Defines this as a "Container Rulebook"
+metadata:
+  name: app-limit-range             # Unique name for these constraints
+  namespace: app                     # Target: Only applies to the 'app' folder
+spec:
+  limits:
+  - type: Container                  # Rule applies to every container in the Pod
+    default:                         # AUTOMATIC LIMIT: Added if the dev forgets
+      cpu: "500m"                    # If missing, set limit to 0.5 CPU
+      memory: "512Mi"                # If missing, set limit to 512MB RAM
+    defaultRequest:                  # AUTOMATIC REQUEST: Added if the dev forgets
+      cpu: "250m"                    # If missing, reserve 0.25 CPU
+      memory: "256Mi"                # If missing, reserve 256MB RAM
+    max:                             # CEILING: No single container can exceed this
+      cpu: "1"                       # Max 1 full CPU core per container
+      memory: "1Gi"                  # Max 1GB RAM per container
+    min:                             # FLOOR: No container can be smaller than this
+      cpu: "100m"                    # Minimum 0.1 CPU core
+      memory: "128Mi"                # Minimum 128MB RAM

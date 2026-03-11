@@ -1,0 +1,61 @@
+
+# -- LOKI CORE CONFIGURATION --
+# Disables multi-tenancy (removes the need for X-Scope-OrgID headers)
+auth_enabled: false
+
+server:
+  # The internal port Loki listens on inside the container
+  http_listen_port: 3100
+  # LOG LEVEL: Defaults to 'info'. You only need to add this line if you want 'debug' or 'warn'
+  log_level: info
+
+common:
+  # Base path for all Loki persistent data
+  path_prefix: /loki
+  storage:
+    filesystem:
+      # Location for the actual log data (chunks)
+      chunks_directory: /loki/chunks
+      # Location for alerting/recording rules
+      rules_directory: /loki/rules
+  # Single-node setup doesn't need data replication
+  replication_factor: 1
+  ring:
+    kvstore:
+      # Stores the "ring" state in RAM instead of a database like Consul/Etcd
+      store: inmemory
+
+# RETENTION LIMITS: Defines the age at which logs are eligible for deletion
+limits_config:
+  # 168 hours = 7 days. Logs older than this will be marked for removal.
+  retention_period: 168h 
+
+# THE COMPACTOR: The "Garbage Collector" that actually deletes files from disk
+compactor:
+  # Temporary folder used while processing deletions
+  working_directory: /loki/retention
+  # How often the compactor checks if logs need to be deleted
+  compaction_interval: 10m
+  # MUST be true for 'retention_period' to actually delete files
+  retention_enabled: true
+  # You must define where to store deletion metadata
+  delete_request_store: filesystem 
+  # Wait 2 hours after marking a log for deletion before actually erasing it
+  retention_delete_delay: 2h
+  # Number of simultaneous deletion tasks (higher = faster disk cleanup)
+  retention_delete_worker_count: 150
+
+schema_config:
+  configs:
+    - from: 2020-10-24
+      # 'tsdb' is the modern, high-performance index format (replaces 'boltDB')
+      store: tsdb
+      # Stores the index files directly on the local hard drive
+      object_store: filesystem
+      # The internal version of the Loki data schema
+      schema: v13
+      index:
+        # Prefix for index file names
+        prefix: index_
+        # Creates a new index file every 24 hours (easier for the compactor to delete)
+        period: 24h

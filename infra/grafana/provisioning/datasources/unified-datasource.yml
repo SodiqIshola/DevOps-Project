@@ -1,0 +1,126 @@
+
+# --- GRAFANA DATA SOURCE PROVISIONING ---
+# This file automatically configures your connections so you don't have to manually add them in the UI.
+apiVersion: 1
+
+# THE LIST OF DATABASES GRAFANA WILL TALK TO
+datasources:
+  # -- PROMETHEUS (The Metrics Engine) DATASOURCE CONFIGURATION --
+  # This section tells Grafana how to pull your "How Many?" and "How Fast?" data.
+  - name: Prometheus
+    # Specifies the official Prometheus plugin for time-series data
+    type: prometheus
+    # 'proxy' means the Grafana server itself makes the connection to the Prometheus container
+    access: proxy
+    # The internal Docker network address (Service Name : Port) from docker-compose.yml
+    url: http://prometheus:9090  
+    # Makes this the default source when you open a new "Explore" window or create a panel
+    isDefault: true              
+    # THE UNIQUE ID: Other datasources (like Tempo) use this string to "find" Prometheus
+    uid: Prometheus
+    # ALLOWS EDITING: Let's you tweak the connection settings inside the Grafana UI
+    editable: true
+    # ENGINE SETTINGS: Configures how Grafana queries the Prometheus database
+    jsonData:
+      # DATA ALIGNMENT: Syncs Grafana's refresh rate with your 15s scrape interval 
+      # to prevent "gaps" or "stair-stepping" in your graphs.
+      timeInterval: "15s"
+
+     
+  # -- 2. TEMPO (The Tracing Timeline) DATASOURCE CONFIGURATION --
+  # This section defines how Grafana retrieves and visualizes "Spans" (request timelines).
+  - name: Tempo
+    # Specifies the plugin type used for distributed tracing
+    type: tempo
+    # 'proxy' means the Grafana server (not your browser) talks to the Tempo container
+    access: proxy
+    # UNIQUE ID: This MUST match the 'datasourceUid' in your Loki config to link Logs -> Traces
+    uid: tempo                   
+    # Internal Docker URL: Connects to the Tempo service on its default API port
+    url: http://tempo:3200       
+    # VISUALIZATION SETTINGS: This is the "Magic" that creates diagrams
+    jsonData:
+      # THE SERVICE TOPOLOGY: Enables the 'Node Graph' view in the Grafana UI
+      nodeGraph:
+        # If true, shows a visual map of services (Circles) and their connections (Lines)
+        enabled: true            
+      # THE HEALTH OVERLAY: This is the most advanced part of the dashboard
+      serviceMap:
+        # THE LINK: Tells Tempo to fetch "Request Rate", "Error Rate", and "Duration" (RED metrics)
+        # from Prometheus to color-code the Node Graph (e.g., turning a service Red if it's failing).
+        datasourceUid: 'Prometheus' 
+
+  # -- 2. JAEGER (The Tracing Timeline) DATASOURCE CONFIGURATION --
+  # The unique name that will appear in your Grafana "Explore" dropdown
+  - name: Jaeger
+    # Tells Grafana to use the built-in Jaeger tracing plugin
+    type: jaeger
+    # 'proxy' means Grafana server will query Jaeger (required for Docker setups)
+    access: proxy
+    # Internal Docker address for the Jaeger Query API
+    url: http://jaeger:16686
+    # Unique identifier used by dashboards and cross-datasource links
+    uid: jaeger
+    # Prevents accidental deletion in the Grafana UI
+    editable: false
+    jsonData:
+      # Allows jumping from a trace to Prometheus metrics for the same service
+      prometheusTargetConfig:
+        datasourceUid: Prometheus
+      # Enables Grafana's Node Graph view for visualizing service dependencies
+      nodeGraph:
+        enabled: true
+      # Enables "View Logs for this Trace" button
+      # Grafana will search Loki for logs containing the same trace ID
+      # tracesToLogs:
+      #   datasourceUid: Loki
+      #   tags: ['trace_id']
+      #   mapTagToLabel: true
+      #   filterByTraceID: true
+    
+
+
+  # --- SECTION: LOKI DATASOURCE (The Log Hub) ---
+  # This defines how Grafana connects to your logs and links them to your traces.
+  - name: Loki
+    # Plugin type for log aggregation.
+    type: loki
+    # 'proxy' means Grafana acts as the middleman to fetch logs from the Loki container.
+    access: proxy
+    # INTERNAL NETWORK: Uses the Docker service name 'loki' on its default API port.
+    url: http://loki:3100
+    # UNIQUE ID: This 'Loki' UID is used by Jaeger/Tempo to "find" these logs.
+    uid: Loki 
+    # If false, you must manually select Loki in the Explore dropdown.
+    isDefault: false
+    # 'true' allows you to test the connection or change the URL inside the Grafana web UI.
+    editable: true
+    # --- ADVANCED LOGIC: THE LOG-TO-TRACE LINK ---
+    jsonData:
+      # Protects Grafana from crashing by limiting how many logs it loads at once.
+      maxLines: 1000
+      # 'derivedFields' creates "Clickable Buttons" inside your raw log text.
+      derivedFields:
+        # --- LINK 1: JUMPS TO TEMPO ---
+        - name: "View in Tempo"
+          # THE TARGET: When you click the button, Grafana sends the ID to the 'tempo' datasource.
+          datasourceUid: tempo    
+          # THE SCANNER: This Regex (Regular Expression) looks for your Trace ID in the log.
+          # Example Log: {"message":"User login", "trace_id":"a1b2c3d4"}
+          # It captures everything inside the second set of quotes: (\\w+)
+          matcherRegex: '"trace_id":"(\\w+)"' 
+          # THE ACTION: Grabs the raw value found by the Regex and searches Tempo for it.
+          # '$${__value.raw}' is the internal Grafana variable for "the ID we just found."
+          url: '$${__value.raw}'
+
+        # --- LINK 2: JUMPS TO JAEGER ---
+        - name: "View in Jaeger"
+          # Points to the 'jaeger' UID we set earlier
+          datasourceUid: "jaeger"
+          # Uses the SAME Regex to find the same ID
+          matcherRegex: '"trace_id":"(\\w+)"'
+          # Pass the ID directly to the Jaeger search engine
+          url: '$${__value.raw}'
+
+
+
