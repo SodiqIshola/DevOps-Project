@@ -1,0 +1,48 @@
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+  annotations:
+    # Sync Wave 0: Ensures this installs first before Loki/Tempo/Alloy
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  # Links to the RBAC project defined below
+  project: observability-project
+  
+  sources:
+    # Source 1: The remote Helm Chart
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: 82.10.3
+      helm:
+        # '$config' matches the 'ref' in the Git source below
+        valueFiles:
+          - $config/k8s/monitoring/helm/values/prometheus-stack.yaml
+    
+    # Source 2: Your private Git repository for configuration
+    - repoURL: https://github.com/SodiqIshola/DevOps-Project
+    # Use 'HEAD' for latest or a specific branch/tag
+      targetRevision: HEAD
+      # Alias used by the Helm source to find your values file
+      ref: config 
+
+  destination:
+    namespace: monitoring
+    server: https://kubernetes.default.svc
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # Required for Prometheus: Handles large CRDs by using Server-Side Apply
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m

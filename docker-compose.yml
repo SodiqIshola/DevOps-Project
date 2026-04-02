@@ -1,13 +1,15 @@
 
 services:
 
-  # =========================
-  # Node.js Application
-  # =========================
+  # ==========================================
+  # DEVELOPMENT SERVICE (Local Coding)
+  # ==========================================
   node-app:
-    image: sunky24/node-task-app:latest  
+    image: sunky24/node-task-app:latest
     container_name: node-app
+    command: npm run dev          # Overrides Dockerfile to use nodemon
     environment:
+      - NODE_ENV=development
       # Tells the Node process exactly which zone to use
       - TZ=America/Toronto 
       # Tell the OTel SDK where to send TRACES (Jaeger or tempo)
@@ -32,6 +34,15 @@ services:
       - "3000:3000"
     restart: unless-stopped
     volumes:
+      # Maps your local Windows folder onto the container's /usr/src/app.
+      # This "masks" the code inside the image with your live code so you can run and 
+      # test changes instantly without rebuilding the image every time.
+      - .:/usr/src/app
+
+      # This tells Docker to use the 'node_modules' already 
+      # installed inside the container image. It prevents your local Windows/Mac 
+      # modules from overwriting the Linux-compatible ones in the container.
+      - /usr/src/app/node_modules
     # Map a local folder to the app's internal logs folder
       - ./app-logs:/app/logs
     # Ensure it always checks for a newer version on Docker Hub

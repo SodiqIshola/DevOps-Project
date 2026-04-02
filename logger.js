@@ -17,9 +17,9 @@ const logger = winston.createLogger({
     winston.format.json() 
   ),
   transports: [
-    // 1. CONSOLE: Standard output for 'docker logs'
+    // CONSOLE: Standard output for 'docker logs'
     new winston.transports.Console(),
-    // 2. FILE: For Promtail to "tail" and ship to Loki
+    // FILE: For Promtail to "tail" and ship to Loki
     new winston.transports.File({ 
       // FIX: Use process.cwd() instead of __dirname to target /app/logs
       // This prevents the 'EACCES' error inside the 'dist' folder

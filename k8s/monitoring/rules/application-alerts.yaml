@@ -1,0 +1,37 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: application-alerts
+  labels:
+    role: alert-rules
+    team: backend-devs
+spec:
+  groups:
+    - name: app.quality
+      rules:
+        # ---------------------------------------------------------------------
+        # ERROR RATE: Alerts if more than 5% of requests result in 5xx errors.
+        # ---------------------------------------------------------------------
+        - alert: AppHighHttpErrorRate
+          expr: |
+            (sum by(job) (rate(http_requests_total{status=~"5.."}[5m])) 
+            / 
+            sum by(job) (rate(http_requests_total[5m]))) * 100 > 5
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "High 5xx error rate on {{ $labels.job }}"
+            description: "Errors are currently {{ $value | printf \"%.2f\" }}% of total traffic."
+
+        # ---------------------------------------------------------------------
+        # LATENCY: Alerts if the 95th percentile of requests takes > 1 second.
+        # ---------------------------------------------------------------------
+        - alert: AppHighP95Latency
+          expr: histogram_quantile(0.95, sum by (le, job) (rate(http_request_duration_seconds_bucket[5m]))) > 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Slow requests detected on {{ $labels.job }}"
+            description: "P95 latency is {{ $value | printf \"%.2f\" }}s."

@@ -1,0 +1,9 @@
+# Patch to update ServiceMonitor for the dev environment
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: node-app-monitor
+spec:
+  namespaceSelector:
+    matchNames:
+      - prod-namespace

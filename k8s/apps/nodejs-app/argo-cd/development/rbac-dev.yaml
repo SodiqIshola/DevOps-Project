@@ -1,0 +1,23 @@
+
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: dev-apps-project
+  namespace: argocd
+spec:
+  description: "RBAC boundary for development applications"
+
+  destinations:
+    - namespace: dev-namespace
+      server: https://kubernetes.default.svc  # Restrict deployments to development namespace
+
+  sourceRepos:
+    - "https://github.com/SodiqIshola/DevOps-Project"                   # Limit Git sources for this project
+
+  namespaceResourceWhitelist:
+    - group: '*'  # Allow standard namespace-scoped resources
+      kind: '*'
+
+  clusterResourceWhitelist:
+    - group: ''   # Explicitly deny access to sensitive cluster-level resources
+      kind: 'none'

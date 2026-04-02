@@ -1,0 +1,52 @@
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  # The name for the OTel Collector in your Argo CD dashboard
+  name: otel-collector
+  namespace: argocd
+  annotations:
+    # Sync Wave 3: This is the final step in the pipeline.
+    # It waits for Prometheus, Loki, Tempo, and Alloy to be fully "Ready".
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  # Links to your previously created RBAC project
+  project: observability-project
+  
+  sources:
+    # Source 1: The official OpenTelemetry Helm Chart
+    - repoURL: https://open-telemetry.github.io/opentelemetry-helm-charts
+      chart: opentelemetry-collector
+      targetRevision: 0.147.0
+      helm:
+        # '$config' points to the Git repo defined in the second source
+        valueFiles:
+          - $config/k8s/monitoring/helm/values/otel.yaml
+    
+    # Source 2: Your private Git repository containing the otel.yaml config
+    - repoURL: https://github.com/SodiqIshola/DevOps-Project
+      targetRevision: HEAD
+      # Alias used by the Helm source above to locate the values file
+      ref: config 
+
+  destination:
+    # Deploys to the centralized monitoring namespace
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # Recommended for OTel: ensures large configuration changes apply cleanly
+      - ServerSideApply=true
+    
+    # Retry logic to handle any transient network issues during the chart pull
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m

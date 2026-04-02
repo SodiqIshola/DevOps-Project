@@ -1,0 +1,81 @@
+# -----------------------------------------------------------------------------
+# DEPLOYMENT
+# Manages the lifecycle of application Pods including updates, scaling, and 
+# security context enforcement.
+# -----------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: node-app
+  labels:
+    app: node-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: node-app
+  template:
+    metadata:
+      labels:
+        app: node-app
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: node-app
+        image: sunky24/node-task-app:1.3.0
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 3000
+        - name: https
+          containerPort: 3443
+        env:
+        - name: TZ
+          value: "America/Toronto"
+        - name: NODE_ENV
+          value: "production"
+        - name: OTEL_SERVICE_NAME
+          value: "node-task-app"
+
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "256Mi"
+            ephemeral-storage: "500Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+            ephemeral-storage: "1Gi"
+
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+          failureThreshold: 30
+          periodSeconds: 10
+
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 60
+          periodSeconds: 20
+
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+
+        volumeMounts:
+        - name: log-storage
+          mountPath: /app/logs
+
+      volumes:
+      - name: log-storage
+        persistentVolumeClaim:
+          claimName: node-app-log-pvc
+
+

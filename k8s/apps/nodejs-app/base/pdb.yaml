@@ -1,0 +1,13 @@
+# -----------------------------------------------------------------------------
+# POD DISRUPTION BUDGET (PDB)
+# Ensures high availability during planned cluster maintenance.
+# -----------------------------------------------------------------------------
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: node-app-pdb
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: node-app

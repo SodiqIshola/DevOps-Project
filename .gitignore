@@ -10,5 +10,29 @@ junit.xml
 logs/
 app-logs/
 
+.dockerignore
+
+
+
+# 1. THE BIG ONE: The .terraform folder contains provider binaries (100MB+ each)
+# This is what's causing your "file too large" error.
+.terraform/
+terraform/.terraform/
+
+# 2. THE SENSITIVE ONES: State files contain your infrastructure's "DNA" and secrets.
+*.tfstate
+*.tfstate.*
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+
+# 3. THE LOCK FILE: Prevents version drift (commonly ignored in local learning projects)
+.terraform.lock.hcl
+terraform/.terraform.lock.hcl
+
+# 4. THE VARIABLES: Often contains passwords/keys. Never push these!
+*.tfvars
+*.tfvars.json
+
+
 
 

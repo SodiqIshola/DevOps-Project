@@ -1,0 +1,45 @@
+{
+  "uid": "dev-environment-metrics",
+  "title": "Development Environment Metrics",
+  "tags": ["dev", "prometheus", "application"],
+  "timezone": "browser",
+  "schemaVersion": 36,
+  "panels": [
+    {
+      "title": "CPU Usage per Container",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(container_cpu_usage_seconds_total{namespace='dev-namespace'}[1m])",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    },
+    {
+      "title": "Memory Usage per Container",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "container_memory_usage_bytes{namespace='dev-namespace'}",
+          "legendFormat": "{{pod}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes" } }
+    },
+    {
+      "title": "Network I/O",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 6 },
+      "targets": [
+        { "expr": "rate(container_network_receive_bytes_total{namespace='dev-namespace'}[5m])", "legendFormat": "RX" },
+        { "expr": "rate(container_network_transmit_bytes_total{namespace='dev-namespace'}[5m])", "legendFormat": "TX" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes" } }
+    }
+  ]
+}

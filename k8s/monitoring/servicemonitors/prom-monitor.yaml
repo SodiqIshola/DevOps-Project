@@ -1,0 +1,27 @@
+# -----------------------------------------------------------------------------
+# SERVICE MONITOR: PROMETHEUS OPERATOR
+# Enables self-monitoring for the Prometheus stack by defining the 
+# scraping configuration for the operator's internal metrics.
+# -----------------------------------------------------------------------------
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: prometheus-self-monitor
+  labels:
+    # Ensures discovery by the Prometheus Operator release
+    release: kube-prometheus-stack
+spec:
+  # Discovers the Operator service based on standard Helm labels
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kube-prometheus-stack-prometheus-operator
+
+  namespaceSelector:
+    matchNames:
+      - monitoring
+
+  endpoints:
+    - targetPort: http-web
+      interval: 30s
+      path: /metrics
+      scheme: http

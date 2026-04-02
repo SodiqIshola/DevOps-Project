@@ -1,0 +1,225 @@
+resources:
+  - ../../base
+
+# Deploys all resources into this specific namespace for environment isolation
+namespace: prod-namespace
+
+# Transforms metadata.name of all resources by adding a '-dev' suffix to ensure unique naming within the cluster.
+nameSuffix: -prod
+
+
+# Global labels injected into metadata and spec selectors for environment isolation and Grafana observability.
+# as well as Deployment selectors and Pod templates.
+labels:
+  - pairs:
+      environment: production
+    includeSelectors: false # Prevents breaking the Base's functional logic
+    includeTemplates: true  # Ensures Pods are labeled for filtering/logs
+
+
+patches:
+  - path: ingress-patch.yaml 
+  - path: servicemonitor-patch.yaml
+    # Explicitly matches the ServiceMonitor by kind and name for precise patching
+    target:
+      kind: ServiceMonitor
+      name: node-app-monitor
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# apiVersion: kustomize.config.k8s.io/v1beta1
+# kind: Kustomization
+
+# # Reference your base deployment file
+# resources:
+#   - deployment.yaml
+
+# patches:
+#   - target:
+#       kind: Deployment
+#       name: node-app
+#     patch: |-
+#       apiVersion: apps/v1
+#       kind: Deployment
+#       metadata:
+#         name: node-app
+#       spec:
+#         # Scale to exactly 1 replica
+#         replicas: 1 
+#         template:
+#           spec:
+#             containers:
+#             - name: node-app
+#               # Override entrypoint to run development script
+#               command: ["npm"]
+#               args: ["run", "dev"]
+#               # Inject development environment variable
+#               env:
+#               - name: NODE_ENV
+#                 value: "development"
+#               # Health Check: Argo CD waits for this probe to pass before marking 'Healthy'
+#               readinessProbe:
+#                 httpGet:
+#                   path: /healthz # Update to your app's health endpoint
+#                   port: 3000     # Update to your app's port
+#                 initialDelaySeconds: 5
+#                 periodSeconds: 10
+
+
+
+
+
+# resources:
+#   - deployment.yaml
+
+# patches:
+#   - target:
+#       kind: Deployment
+#       name: node-app
+#     patch: |-
+#       - op: replace
+#         path: /spec/replicas
+#         value: 1
+#       - op: add
+#         path: /spec/template/spec/containers/0/command
+#         value: ["npm"]
+#       - op: add
+#         path: /spec/template/spec/containers/0/args
+#         value: ["run", "dev"]
+#       - op: add
+#         path: /spec/template/spec/containers/0/env/-
+#         value:
+#           name: NODE_ENV
+#           value: "development"

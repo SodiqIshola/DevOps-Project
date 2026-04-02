@@ -29,12 +29,22 @@ ARG CACHE_BUST=1
 # Run snyk and create a "stamp" file if it succeeds
 # Use BuildKit secrets to authenticate and post the report
 # This prevents the SNYK_TOKEN from being stored in the image layers
-RUN --mount=type=secret,id=snyk_token \
-    SNYK_TOKEN=$(cat /run/secrets/snyk_token) \
-    snyk container monitor node:22-alpine \
-                           --file=Dockerfile \
-                           --project-name=my-unified-node-app \
-                           --exclude-base-image-vulns
+# RUN --mount=type=secret,id=snyk_token \
+#     SNYK_TOKEN=$(cat /run/secrets/snyk_token) \
+#     snyk container monitor node:22-alpine \
+#                            --file=Dockerfile \
+#                            --org=node-project \
+#                            --project-name=my-unified-node-app \
+#                            --exclude-base-image-vulns \
+#                            -d
+
+# RUN --mount=type=secret,id=snyk_token \
+#     export SNYK_TOKEN=$(cat /run/secrets/snyk_token) && \
+#     snyk container test node:22-alpine \
+#                            --file=Dockerfile \
+#                            --org=node-project \
+#                            --project-name=my-unified-node-app \
+#                            -d 
 
 
 # Create the stamp file to force Stage 3 to wait for this stage
@@ -59,7 +69,7 @@ ENV AWS_EMF_ENVIRONMENT=Local
 # Copy package files and install prod dependencies
 COPY --from=builder /app/package*.json ./
 RUN npm ci --only=production
-COPY --from=builder /app/dist ./dist
+COPY --from=builder /app ./
 
 # --- PERMISSIONS & LOGS SETUP ---
 # Create the logs directory explicitly

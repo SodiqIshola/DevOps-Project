@@ -1,0 +1,262 @@
+
+# https://github.com/open-telemetry/opentelemetry-helm-charts/blob/main/charts/opentelemetry-collector/values.yaml
+
+# =============================================================================
+# IMAGE CONFIGURATION
+# -----------------------------------------------------------------------------
+# Pin a specific collector version to ensure consistent behavior across
+# environments and avoid unexpected breaking changes from upstream.
+# =============================================================================
+image:
+  repository: "otel/opentelemetry-collector-contrib"
+  tag: "0.116.1"
+
+# =============================================================================
+# DEPLOYMENT MODEL & RESOURCE GUARDS
+# -----------------------------------------------------------------------------
+# Runs as a centralized Deployment (not DaemonSet) since this acts as the
+# ingestion layer for application telemetry, not node-level collection.
+# Resource limits prevent noisy-neighbor issues under high ingestion load.
+# =============================================================================
+mode: deployment
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi  
+  limits:
+    cpu: 500m
+    memory: 512Mi  
+
+# =============================================================================
+# COLLECTOR PIPELINE CONFIGURATION
+# -----------------------------------------------------------------------------
+# Defines how telemetry flows through the collector:
+# Receiver → Processors → Exporters
+# This instance is intentionally lightweight and forwards traces to Alloy.
+# =============================================================================
+config:
+  extensions:
+    # Health endpoint used by Kubernetes probes
+    health_check: 
+      endpoint: ${env:MY_POD_IP}:13133
+
+    # Debug endpoints for live pipeline inspection (useful during troubleshooting)
+    zpages: {}
+
+  receivers:
+    # Standard OTLP ingestion (gRPC + HTTP)
+    otlp:
+      protocols:
+        grpc:
+          endpoint: ${env:MY_POD_IP}:4317
+        http:
+          endpoint: ${env:MY_POD_IP}:4318
+
+  processors:
+    # Prevents OOM during spikes by dropping data when limits are hit
+    memory_limiter:
+      check_interval: 5s
+      limit_percentage: 80
+      spike_limit_percentage: 25
+
+    # Adds Kubernetes metadata to spans (critical for routing + debugging)
+    k8sattributes:
+      auth_type: "serviceAccount"
+      passthrough: false
+      extract:
+        metadata:
+          - k8s.pod.name
+          - k8s.pod.uid
+          - k8s.namespace.name
+          - k8s.node.name
+          - k8s.deployment.name
+      pod_association:
+        - sources:
+            - from: resource_attribute
+              name: k8s.pod.ip
+        - sources:
+            - from: connection
+
+    # Batching improves network efficiency and backend performance
+    batch: {}
+
+  exporters:
+    otlp/alloy:
+      # Sends traces to Alloy for metrics generation before forwarding to Tempo
+      endpoint: "alloy.monitoring.svc.cluster.local:4317"
+      tls:
+        insecure: true
+
+  service:
+    # Attach runtime metadata for observability correlation
+    telemetry:
+      resource:
+        k8s.node.name: "${env:OTEL_K8S_NODE_NAME}"
+        k8s.node.ip: "${env:OTEL_K8S_NODE_IP}"
+        k8s.pod.name: "${env:OTEL_K8S_POD_NAME}"
+        k8s.pod.ip: "${env:OTEL_K8S_POD_IP}"
+      metrics:
+        readers:
+          - pull:
+              exporter:
+                prometheus:
+                  host: ${env:MY_POD_IP}
+                  port: 8888
+
+    extensions: [health_check, zpages]
+    pipelines:
+      traces:
+        receivers: [otlp]
+        processors: [k8sattributes, memory_limiter, batch]
+        exporters: [otlp/alloy]
+
+# =============================================================================
+# RUNTIME METADATA (DOWNWARD API)
+# Injects pod/node identity into the collector for better trace enrichment
+# and correlation across systems.
+# =============================================================================
+extraEnvs:
+  - name: OTEL_K8S_NODE_NAME
+    valueFrom:
+      fieldRef:
+        fieldPath: spec.nodeName
+  - name: OTEL_K8S_NODE_IP
+    valueFrom:
+      fieldRef:
+        fieldPath: status.hostIP
+  - name: OTEL_K8S_POD_NAME
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.name
+  - name: OTEL_K8S_POD_IP
+    valueFrom:
+      fieldRef:
+        fieldPath: status.podIP
+
+
+# =============================================================================
+# SERVICE ACCOUNT & RBAC (REQUIRED FOR METADATA ENRICHMENT)
+# Grants read-only access required by the k8sattributes processor.
+# =============================================================================
+serviceAccount:
+  create: true
+  automountServiceAccountToken: true
+
+clusterRole:
+  create: true
+  name: ""
+  rules:
+    - apiGroups: [""]   # Core Group (Pods, Nodes, Namespaces, Services, ConfigMaps etc.)
+      resources: ["pods", "nodes", "namespaces"]
+      verbs: ["get", "list", "watch"]
+    - apiGroups: ["apps"]    # Apps Group (ReplicaSets, Deployments)
+      resources: ["replicasets", "deployments"]
+      verbs: ["get", "list", "watch"]
+
+  clusterRoleBinding:
+    name: ""
+
+# =============================================================================
+# NETWORK EXPOSURE
+# Exposes OTLP endpoints for internal and external ingestion.
+# HostPorts allow node-level ingestion if required (use cautiously).
+# =============================================================================
+ports:
+  healthcheck:
+    enabled: true
+    containerPort: 13133
+    servicePort: 13133
+    protocol: TCP
+
+  metrics:
+    enabled: false
+    containerPort: 8888
+    servicePort: 8888
+    protocol: TCP
+
+  otlp:
+    enabled: true
+    containerPort: 4317
+    servicePort: 4317
+    hostPort: 4317
+    protocol: TCP
+    appProtocol: grpc
+
+  otlp-http:
+    enabled: true
+    containerPort: 4318
+    servicePort: 4318
+    hostPort: 4318
+    protocol: TCP
+
+# =============================================================================
+# HEALTH PROBES
+# =============================================================================
+# Ensures the Collector pod is alive, ready, and fully started before accepting traffic.
+livenessProbe:
+  httpGet:
+    port: 13133
+    path: /
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 1
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    port: 13133
+    path: /
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 1
+  successThreshold: 1
+  failureThreshold: 3
+
+startupProbe:
+  httpGet:
+    port: 13133
+    path: /
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 1
+  failureThreshold: 15
+
+# =============================================================================
+# SERVICE & DISCOVERY
+# -----------------------------------------------------------------------------
+# ClusterIP is sufficient since ingestion happens internally.
+# ServiceMonitor enables Prometheus scraping of collector metrics.
+# =============================================================================
+service:
+  enabled: true
+  type: ClusterIP
+  internalTrafficPolicy: Local
+
+serviceMonitor:
+  enabled: true
+  metricsEndpoints:
+    - port: metrics
+      interval: 30s
+      relabelings:
+        - targetLabel: job
+          replacement: "otel-collector"
+
+# =============================================================================
+# EXTERNAL ACCESS (INGRESS)
+# =============================================================================
+# Exposes OTLP endpoints externally via Traefik for apps outside the cluster.
+ingress:
+  enabled: true
+  ingressClassName: traefik
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+  hosts:
+    - host: otel-collector.localhost
+      paths:
+        - path: /
+          pathType: Prefix
+          port: 4318
+
+
+

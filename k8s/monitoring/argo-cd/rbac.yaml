@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: observability-project
+  namespace: argocd
+spec:
+  description: "RBAC boundary for observability stack deployments (Prometheus, Loki, Tempo, OpenTelemetry, Alloy) into the monitoring namespace"
+  
+  # Deployment scope restricted to the monitoring namespace within the local cluster
+  destinations:
+    - namespace: monitoring
+      server: https://kubernetes.default.svc
+  
+  # Approved source repositories for Helm charts and internal manifests
+  sourceRepos:
+    - "https://prometheus-community.github.io/helm-charts"
+    - "https://grafana.github.io/helm-charts"
+    - "https://open-telemetry.github.io/opentelemetry-helm-charts"
+    - "https://github.com/SodiqIshola/DevOps-Project"
+
+  # Allows required cluster-scoped resources (e.g., CRDs, ClusterRoles) for observability components
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'

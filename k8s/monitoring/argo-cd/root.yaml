@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  # The "Parent" that watches the bootstrap folder
+  name: observability-stack-root
+  namespace: argocd
+spec:
+  # Links to the project inside the same folder
+  project: observability-project
+  source:
+    repoURL: https://github.com/SodiqIshola/DevOps-Project
+    targetRevision: HEAD
+    # Point to the folder containing ALL these YAMLs
+    path: k8s/monitoring/argo-cd 
+    directory:
+      recurse: true # Scans the folder for all Application manifests
+  destination:
+    server: https://kubernetes.default.svc
+    # The Application manifests themselves live in the 'argocd' namespace
+    namespace: argocd 
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

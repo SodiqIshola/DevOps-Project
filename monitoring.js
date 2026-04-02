@@ -77,7 +77,7 @@ const updateCloudWatch = async (method, route, status, taskCount) => {
   } catch (err) {
     // If the Collector isn't ready or the network is down, this catches it
     console.error("Monitoring: Failed to send EMF metrics to OTel Collector.", err.message);
-    console.info("Tip: Set AWS_EMF_ENVIRONMENT=Local to see these metrics in the console instead.");
+    console.info("Set AWS_EMF_ENVIRONMENT=Local to see these metrics in the console instead.");
   }
 };
 

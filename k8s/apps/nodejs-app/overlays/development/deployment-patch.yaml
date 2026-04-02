@@ -1,0 +1,19 @@
+# Patch to inject development-specific environment variables and scale to 1
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: node-app
+spec:
+  replicas: 1                        # Maintains 2 running copies of your app
+  selector:
+    matchLabels:
+      app: node-app    
+  template:
+    spec:
+      containers:
+      - name: node-app
+        command: ["npm"]
+        args: ["run", "dev"]
+        env:
+        - name: NODE_ENV
+          value: "development"

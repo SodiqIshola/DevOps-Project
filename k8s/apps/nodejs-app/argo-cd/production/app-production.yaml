@@ -1,0 +1,41 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  # Production application definition managed by Argo CD
+  name: nodejs-app-prod
+  namespace: argocd 
+spec:
+  # Project enforces RBAC and environment-level boundaries
+  project: prod-apps-project
+  
+  source:
+    # Git repository containing application manifests
+    repoURL: https://github.com/SodiqIshola/DevOps-Project
+    # For production, consider pinning to a tag or release instead of HEAD
+    targetRevision: HEAD
+    # Kustomize overlay for production-specific configuration
+    path: k8s/apps/nodejs-app/overlays/production 
+  
+  destination:
+    # Target cluster and namespace for deployment
+    server: https://kubernetes.default.svc
+    namespace: prod-namespace 
+
+  syncPolicy:
+    # Manual promotion model for production deployments
+    
+    syncOptions:
+      # Ensures namespace exists prior to deployment
+      - CreateNamespace=true
+      # Validates manifests before applying changes
+      - Validate=true
+      # Applies pruning at the end of the sync process
+      - PruneLast=true
+
+    # Retry configuration for transient failures
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s 
+        factor: 2
+        maxDuration: 5m

@@ -1,0 +1,63 @@
+
+apiVersion: 1
+groups:
+  - name: application-log-alerts
+    folder: Logs
+    interval: 1m
+
+    rules:
+      # -------------------------------------------------------------------
+      # 1. HIGH ERROR RATE (LOGS)
+      # Logic: Scans logs for level="error". Alert triggers if more than 5 
+      # errors per second occur over a 5-minute window.
+      # -------------------------------------------------------------------
+      - uid: high-log-error-rate
+        title: "App: High Error Rate in Logs"
+        condition: A
+        for: 5m
+
+        labels:
+          severity: critical
+          source: loki
+
+        annotations:
+          summary: "Excessive errors detected in {{ $labels.app }}"
+          description: "The application is logging over 5 errors/sec."
+
+        data:
+          - refId: A
+            datasourceUid: loki
+            relativeTimeRange:
+              from: 300   # 5 minutes
+              to: 0
+            model:
+              expr: 'sum by (app) (rate({app=~".+", level="error"}[5m]))'
+              queryType: range
+
+      # -------------------------------------------------------------------
+      # 2. LOG VOLUME SPIKE
+      # Logic: Detects sudden bursts of logs which usually indicate a 
+      # "Log Loop" or a "DDoS" attack.
+      # -------------------------------------------------------------------
+      - uid: log-volume-spike
+        title: "Infra: Unusual Log Volume Spike"
+        condition: A
+        for: 2m
+
+        labels:
+          severity: warning
+          source: loki
+
+        annotations:
+          summary: "Log burst detected on {{ $labels.app }}"
+          description: "Log volume has increased significantly."
+
+        data:
+          - refId: A
+            datasourceUid: loki
+            relativeTimeRange:
+              from: 120   # 2 minutes
+              to: 0
+            model:
+              expr: 'sum by (app) (rate({app=~".+"}[2m]))'
+              queryType: range

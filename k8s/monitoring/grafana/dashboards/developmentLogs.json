@@ -1,0 +1,79 @@
+
+{
+  "uid": "node-js-logs-dev",
+  "tags": ["nodejs", "loki", "development"],
+  "title": "Node.js App Logs (Development)",
+  "panels": [
+    {
+      "title": "P95 Request Latency (from Logs)",
+      "type": "timeseries",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "quantile_over_time(0.95, {namespace=\"dev-namespace\"} | json | unwrap duration_ms [5m]) by (service)",
+          "legendFormat": "P95 Latency",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "ms", "custom": { "drawStyle": "line", "lineInterpolation": "smooth" } }
+      }
+    },
+    {
+      "title": "HTTP Status Distribution",
+      "type": "piechart",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum by (status) (count_over_time({namespace=\"dev-namespace\"} | json | status != \"\" [1h]))",
+          "legendFormat": "Status {{status}}",
+          "refId": "B"
+        }
+      ],
+      "options": { "reduceOptions": { "values": true }, "pieType": "donut" }
+    },
+    {
+      "title": "Top 5 Slowest Routes (Avg)",
+      "type": "barchart",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "topk(5, avg by (route) (avg_over_time({namespace=\"dev-namespace\"} | json | unwrap duration_ms [1h])))",
+          "legendFormat": "{{route}}",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ms" } }
+    },
+    {
+      "title": "Error Logs (Last 1h)",
+      "type": "logs",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "{namespace=\"dev-namespace\"} | json | level=\"error\" or status >= 500",
+          "refId": "D"
+        }
+      ]
+    },
+    {
+      "title": "Live Application Logs",
+      "type": "logs",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 26 },
+      "targets": [
+        { "expr": "{namespace=\"dev-namespace\"} | json", "refId": "E" }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "enableLogDetails": true,
+        "prettifyLogMessage": true
+      }
+    }
+  ]
+}

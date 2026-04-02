@@ -1,0 +1,113 @@
+# https://github.com/grafana/helm-charts/blob/main/charts/tempo-distributed/values.yaml
+
+# =============================================================================
+# GRAFANA TEMPO (TRACE STORAGE)
+# =============================================================================
+# Role:
+# - Stores distributed traces
+# - Provides query backend for Grafana
+# - Generates optional metrics via metrics_generator
+#
+# Storage: Local (dev/test). Use S3/GCS in production.
+# =============================================================================
+
+tempo:
+  enabled: true
+
+  # -----------------------------------------------------------------------------
+  # HEALTH CHECKS (IMPORTANT FOR WAL RECOVERY)
+  # -----------------------------------------------------------------------------
+  startupProbe:
+    httpGet:
+      path: /ready
+      port: 3200
+    failureThreshold: 30
+    periodSeconds: 10
+
+  livenessProbe:
+    httpGet:
+      path: /ready
+      port: 3200
+    periodSeconds: 10
+
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: 3200
+    periodSeconds: 10
+
+  # -----------------------------------------------------------------------------
+  # CORE CONFIGURATION
+  # -----------------------------------------------------------------------------
+  config: |
+    multitenancy_enabled: false
+
+    server:
+      http_listen_port: 3200
+
+    distributor:
+      receivers:
+        otlp:
+          protocols:
+            grpc:
+            http:
+
+    ingester:
+      max_block_duration: 5m
+
+    metrics_generator:
+      storage:
+        path: /var/tempo/generator/wal
+        remote_write:
+          - url: http://prometheus-operated.monitoring.svc:9090/api/v1/write
+
+    compactor:
+      compaction:
+        block_retention: 48h
+
+    # Defines where Tempo stores traces locally. Without this, Tempo has no place to
+    # store ingested traces and will fail to write them.
+    storage:
+      trace:
+        backend: local
+        block:
+          version: vParquet4
+        local:
+          path: /var/tempo/traces
+        wal:
+          path: /var/tempo/wal
+        retention: 48h
+
+  # -----------------------------------------------------------------------------
+  # PERSISTENCE
+  # -----------------------------------------------------------------------------
+  persistence:
+    enabled: true
+    storageClassName: local-path
+    accessModes: ["ReadWriteOnce"]
+    size: 2Gi
+
+  # -----------------------------------------------------------------------------
+  # RESOURCE LIMITS
+  # -----------------------------------------------------------------------------
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # -----------------------------------------------------------------------------
+  # PROMETHEUS SCRAPING
+  # -----------------------------------------------------------------------------
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+
+
+
+
+
+
+

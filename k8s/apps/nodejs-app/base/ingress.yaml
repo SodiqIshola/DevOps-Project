@@ -1,0 +1,25 @@
+# -----------------------------------------------------------------------------
+# INGRESS
+# Acts as a reverse proxy and load balancer for external traffic, directing 
+# requests to the appropriate service based on URL paths.
+# -----------------------------------------------------------------------------
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: node-app-ingress
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: app.internal
+      http:
+        paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: node-app-service
+              port:
+                name: http

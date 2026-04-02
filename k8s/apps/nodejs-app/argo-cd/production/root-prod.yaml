@@ -1,0 +1,20 @@
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prod-monitoring-root
+  namespace: argocd
+spec:
+  project: prod-apps-project
+  source:
+    repoURL: https://github.com/SodiqIshola/DevOps-Project
+    # Typically aligned with a stable branch or release for production
+    targetRevision: main 
+    # Root application for production monitoring stack
+    path: k8s/apps/nodejs-app/argo-cd/production 
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    # Manual control preferred for production-level orchestration
+    automated: null 

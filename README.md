@@ -2,6 +2,23 @@
 
 This project implements a professional **CI/CD and Observability pipeline**. It integrates **Continuous Security (Snyk)**, **Code Quality (SonarQube)**, and the full **LGTM Stack** (Loki, Grafana, Prometheus) for deep application visibility.
 
+
+## 🚀 Key Features
+
+*   **Advanced Observability**: Integrated with Prometheus (`/metrics`) and OpenTelemetry (Traces).
+*   **Structured Logging**: Winston-powered logs categorized by environment and severity.
+*   **Multi-Environment**: Dynamic configuration loading via environment-specific `.env` files.
+*   **Dual Data Models**: Separate controllers for managing both **Tasks** and **Names**.
+*   **Quality Assured**: Full Jest test suite and SonarQube integration.
+
+---
+
+## 🛠️ Environment Configuration
+
+The app uses a dynamic loading system. It defaults to **development** if no variable is provided.
+
+
+
 ---
 
 ## 🏗️ System Architecture

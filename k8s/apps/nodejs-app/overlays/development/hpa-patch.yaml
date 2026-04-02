@@ -1,0 +1,9 @@
+# Patch to lower scaling boundaries for the development environment
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: node-app-hpa
+spec:
+  # Lowering replicas for dev; Kustomize merges this with the base metrics
+  minReplicas: 1
+  maxReplicas: 2
