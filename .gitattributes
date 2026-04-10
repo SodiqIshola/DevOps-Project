@@ -1,0 +1,18 @@
+# 1. Set the default behavior to 'auto' for all files.
+# This lets Git decide if a file is text or binary.
+* text=auto
+
+# 2. Force LF (Linux/macOS style) for specific text file types.
+# These will always be LF in the repo and on checkout.
+*.yaml text eol=lf
+*.yml  text eol=lf
+*.json text eol=lf
+
+# 3. Force CRLF (Windows style) for files that require it.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+
+# 4. Explicitly mark binary files.
+# Git won't touch line endings for these.
+*.png  binary
+*.jpg  binary

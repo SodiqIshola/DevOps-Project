@@ -2,23 +2,29 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  # Deployment name for the Alloy collector
   name: alloy
-  # Namespace where Argo CD is running
   namespace: argocd
+
   annotations:
-    # Sync Wave 2: This ensures Alloy only starts after Wave 1 (the ConfigMaps/Assets) 
-    # is fully deployed and healthy, preventing "config not found" startup crashes.
     argocd.argoproj.io/sync-wave: "2"
+
+  labels:
+    stack: observability
+    component: collector
+    app.kubernetes.io/component: telemetry-collector
+    app.kubernetes.io/part-of: monitoring-stack
+    scope: cross-environment
+    managed-by: argocd
+
 spec:
-  # Uses the 'observability-project' for RBAC permissions instead of 'default'
+
   project: observability-project
   
   sources:
     # Source 1: Pulls the official Helm chart from Grafana's repository
     - repoURL: https://grafana.github.io/helm-charts
       chart: alloy
-      targetRevision: 1.6.2
+      targetRevision: 1.7.0
       helm:
         # Refers to the '$config' alias defined in the second source below
         valueFiles:
@@ -27,7 +33,6 @@ spec:
     # Source 2: Pulls your custom configuration/values from your Git repository
     - repoURL: https://github.com/SodiqIshola/DevOps-Project
       targetRevision: HEAD
-      # Alias used by the Helm source to locate the values file
       ref: config 
 
   destination:
@@ -37,9 +42,7 @@ spec:
 
   syncPolicy:
     automated:
-      # Automatically removes orphaned resources
       prune: true
-      # Automatically corrects manual changes to match the Git state
       selfHeal: true
     syncOptions:
       # Ensures the 'monitoring' namespace exists before deployment
@@ -51,3 +54,13 @@ spec:
         duration: 10s
         factor: 2
         maxDuration: 3m
+
+  info:
+    - name: 'Description'
+      value: 'Central Telemetry Gateway: Aggregates logs, metrics, and OTel traces.'
+    - name: 'Data-Pipeline'
+      value: 'Routes logs to Loki, metrics to Prometheus, and handshakes OTel traces to Tempo.'
+    - name: 'Processing'
+      value: 'Generates span metrics from incoming OTel traces for enhanced dashboarding.'
+
+

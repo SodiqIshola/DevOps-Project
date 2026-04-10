@@ -209,7 +209,10 @@ otelcol.receiver.otlp "from_otel_collector" {
 // Ensures traces, logs, and metrics share consistent labels.
 // ============================================================================
 
-// Production
+
+// ------------------------
+// PRODUCTION
+// ------------------------
 otelcol.processor.attributes "enrich_prod" {
   action {
     key    = "environment"
@@ -218,7 +221,8 @@ otelcol.processor.attributes "enrich_prod" {
   }
 
   include {
-    match_type = "strict"
+    match_type = "regexp"
+
     attribute {
       key   = "k8s.namespace.name"
       value = "prod-namespace"
@@ -230,7 +234,10 @@ otelcol.processor.attributes "enrich_prod" {
   }
 }
 
-// Development
+
+// ------------------------
+// DEVELOPMENT
+// ------------------------
 otelcol.processor.attributes "enrich_dev" {
   action {
     key    = "environment"
@@ -239,7 +246,8 @@ otelcol.processor.attributes "enrich_dev" {
   }
 
   include {
-    match_type = "strict"
+    match_type = "regexp"
+
     attribute {
       key   = "k8s.namespace.name"
       value = "dev-namespace"
@@ -251,7 +259,10 @@ otelcol.processor.attributes "enrich_dev" {
   }
 }
 
-// Fallback (ensures label always exists)
+
+// ------------------------
+// FALLBACK
+// ------------------------
 otelcol.processor.attributes "enrich_default" {
   action {
     key    = "environment"
@@ -267,6 +278,95 @@ otelcol.processor.attributes "enrich_default" {
   }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// // Production
+// otelcol.processor.attributes "enrich_prod" {
+//   action {
+//     key    = "environment"
+//     value  = "production"
+//     action = "upsert"
+//   }
+
+//   include {
+//     match_type = "strict"
+//     attribute {
+//       key   = "k8s.namespace.name"
+//       value = "prod-namespace"
+//     }
+//   }
+
+//   output {
+//     traces = [otelcol.processor.attributes.enrich_dev.input]
+//   }
+// }
+
+// // Development
+// otelcol.processor.attributes "enrich_dev" {
+//   action {
+//     key    = "environment"
+//     value  = "development"
+//     action = "upsert"
+//   }
+
+//   include {
+//     match_type = "strict"
+//     attribute {
+//       key   = "k8s.namespace.name"
+//       value = "dev-namespace"
+//     }
+//   }
+
+//   output {
+//     traces = [otelcol.processor.attributes.enrich_default.input]
+//   }
+// }
+
+// // Fallback (ensures label always exists)
+// otelcol.processor.attributes "enrich_default" {
+//   action {
+//     key    = "environment"
+//     value  = "unknown"
+//     action = "insert"
+//   }
+
+//   output {
+//     traces = [
+//       otelcol.connector.spanmetrics.translator.input,
+//       otelcol.exporter.otlp.to_tempo.input,
+//     ]
+//   }
+// }
+
 // ============================================================================
 // SPAN → METRICS (RED METRICS GENERATION)
 // ----------------------------------------------------------------------------
@@ -276,11 +376,15 @@ otelcol.processor.attributes "enrich_default" {
 // - Duration (latency)
 // ============================================================================
 otelcol.connector.spanmetrics "translator" {
-  dimension { name = "environment" }
+
+  namespace = "traces_spanmetrics"
+
+  dimension { name = "deployment.environment" }
   dimension { name = "k8s.namespace.name" }
   dimension { name = "http.method" }
   dimension { name = "http.status_code" }
   dimension { name = "service.name" }
+  dimension { name = "span.name" }
 
   histogram {
     explicit {
@@ -288,9 +392,11 @@ otelcol.connector.spanmetrics "translator" {
     }
   }
 
+
   output {
-    metrics = [otelcol.exporter.prometheus.to_prometheus.input]
+    metrics = [otelcol.exporter.prometheus.local_prometheus.input]
   }
+
 }
 
 // ============================================================================
@@ -303,9 +409,10 @@ otelcol.exporter.otlp "to_tempo" {
   }
 }
 
-otelcol.exporter.prometheus "to_prometheus" {
+otelcol.exporter.prometheus "local_prometheus" {
   forward_to = [prometheus.remote_write.local_prometheus.receiver]
 }
+
 
 // ============================================================================
 // PROMETHEUS REMOTE WRITE (FINAL DESTINATION)

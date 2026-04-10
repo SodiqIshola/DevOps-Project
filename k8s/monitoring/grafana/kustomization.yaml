@@ -63,6 +63,7 @@ configMapGenerator:
       - developmentMetrics.json=dashboards/developmentMetrics.json
       - productionMetrics.json=dashboards/productionMetrics.json
       - nodeExporterMetrics.json=dashboards/nodeExporterMetrics.json
+      - unifiedMetrics.json=dashboards/unifiedMetrics.json
     options:
       labels: { grafana_dashboard: "1" }
       annotations: { grafana_folder: "Infrastructure Metrics" }
@@ -79,8 +80,7 @@ configMapGenerator:
   # TRACING FOLDER
   - name: dashboard-traces
     files:
-      - productionTraces.json=dashboards/productionTraces.json
-      - developmentTraces.json=dashboards/developmentTraces.json
+      - unifiedTraces.json=dashboards/unifiedTraces.json
     options:
       labels: { grafana_dashboard: "1" }
       annotations: { grafana_folder: "Distributed Tracing" }

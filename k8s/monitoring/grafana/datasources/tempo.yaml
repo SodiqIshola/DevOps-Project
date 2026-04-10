@@ -6,15 +6,18 @@ datasources:
   access: proxy                        
   url: http://tempo.monitoring.svc.cluster.local:3200
   jsonData:
+    serviceGraphs:
+      datasourceUid: 'prometheus'
+
+    metrics:
+      datasourceUid: 'prometheus'
     
-    serviceMap:
-      datasourceUid: 'prometheus' 
     nodeGraph:
       enabled: true               
+    
     tracesToLogs:
       datasourceUid: 'loki'            
       tags: ['job', 'instance', 'pod'] 
       filterByTraceId: true            
       filterBySpanId: false            
-  editable: false                      
-
+  editable: false

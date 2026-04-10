@@ -52,7 +52,7 @@
       "title": "Error Logs (Last 1h)",
       "type": "logs",
       "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 16 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
       "targets": [
         {
           "expr": "{namespace=\"dev-namespace\"} | json | level=\"error\" or status >= 500",

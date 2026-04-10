@@ -7,21 +7,21 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: prometheus-self-monitor
+  namespace: monitoring
   labels:
     # Ensures discovery by the Prometheus Operator release
     release: kube-prometheus-stack
 spec:
-  # Discovers the Operator service based on standard Helm labels
   selector:
     matchLabels:
-      app.kubernetes.io/name: kube-prometheus-stack-prometheus-operator
+      # Discovers the Operator service based on standard Helm labels
+      app: kube-prometheus-stack-prometheus
 
   namespaceSelector:
     matchNames:
       - monitoring
-
   endpoints:
-    - targetPort: http-web
+    - port: http-web
       interval: 30s
       path: /metrics
       scheme: http

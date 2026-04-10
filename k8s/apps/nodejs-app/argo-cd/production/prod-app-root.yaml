@@ -1,0 +1,38 @@
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prod-app-root
+  namespace: argocd
+
+  labels:
+    env: production
+    tier: orchestration
+    stack: application-delivery
+    app.kubernetes.io/component: root-orchestrator
+    app.kubernetes.io/part-of: prod-environment
+    managed-by: argocd
+
+spec:
+  project: prod-apps-project
+
+  source:
+    repoURL: https://github.com/SodiqIshola/DevOps-Project
+    targetRevision: main 
+    path: k8s/apps/nodejs-app/argo-cd/production 
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+
+  syncPolicy:
+    # Manual control preferred for production-level orchestration
+    automated: null 
+
+  info:
+    - name: 'Architecture'
+      value: 'Production Root "App-of-Apps" pattern for controlled workload delivery.'
+    - name: 'Automation-Scope'
+      value: 'Watches the /production folder for new microservice definitions.'
+    - name: 'Operational-View'
+      value: 'Unified management tree for all production-tier resources.'

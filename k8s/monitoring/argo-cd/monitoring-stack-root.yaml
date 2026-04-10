@@ -1,9 +1,17 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  # The "Parent" that watches the bootstrap folder
   name: observability-stack-root
   namespace: argocd
+
+  labels:
+    stack: observability
+    component: orchestrator
+    app.kubernetes.io/component: root-app
+    app.kubernetes.io/part-of: monitoring-stack
+    scope: cross-environment
+    managed-by: argocd
+
 spec:
   # Links to the project inside the same folder
   project: observability-project
@@ -22,3 +30,11 @@ spec:
     automated:
       prune: true
       selfHeal: true
+
+  info:
+    - name: 'Pattern'
+      value: 'App-of-Apps (Root): Centralized management for the entire observability suite.'
+    - name: 'Discovery'
+      value: 'Recursively syncs Metrics, Logging, Tracing, and Collector applications.'
+    - name: 'Operation'
+      value: 'Provides a unified tree view and single point of control for the monitoring stack.'

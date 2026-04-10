@@ -4,16 +4,26 @@ kind: Application
 metadata:
   name: tempo
   namespace: argocd
+
   annotations:
-    # Sync Wave 2: Deploys before Alloy (Wave 2) so the tracing backend is ready first
     argocd.argoproj.io/sync-wave: "2"
+
+  labels:
+    stack: observability
+    component: tracing
+    app.kubernetes.io/component: backend-engine
+    app.kubernetes.io/part-of: monitoring-stack
+    scope: cross-environment
+    managed-by: argocd
+
 spec:
   project: observability-project
+
   # Multiple sources allow combining the official Helm chart with local Git values
   sources:
     - repoURL: https://grafana.github.io/helm-charts
       chart: tempo
-      targetRevision: 1.24.4 # Specific chart version to prevent breaking changes on auto-update
+      targetRevision: 2.0.0 # Specific chart version to prevent breaking changes on auto-update
       helm:
         valueFiles:
           # $values refers to the 'ref: values' defined in the second source below
@@ -37,4 +47,12 @@ spec:
       backoff:
         duration: 10s
         factor: 2
-        maxDuration: 3m # Progressive wait time if the initial deployment fails
+        maxDuration: 3m 
+
+  info:
+    - name: 'Description'
+      value: 'High-scale distributed tracing backend for environment-wide observability.'
+    - name: 'Configuration'
+      value: 'Hybrid Helm deployment using customized local storage and retention policies.'
+    - name: 'Sequence'
+      value: 'Sync Wave 2: Prepared as a target for Alloy and application spans.'

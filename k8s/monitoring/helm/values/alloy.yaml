@@ -22,20 +22,34 @@ alloy:
   enabled: true
 
   # --- CONFIG SOURCE ---
-  # Pipeline config is managed externally (e.g., Kustomize) to decouple
-  # deployment from configuration changes.
+  # This section controls how the ConfigMap is MOUNTED into the pod
   configMap:
     create: false
     name: alloy-config
     key: config.alloy
-
+  
+  # This tells Alloy exactly where to find your custom config
   config:
     existingConfigMap: alloy-config
+    configMapKey: config.alloy
 
-  # --- STORAGE (WAL / STATE) ---
-  # Local storage used for buffering (e.g., WAL) to prevent data loss during restarts.
+  # --- STORAGE  ---
+  # Configures the persistent storage path for the Write-Ahead Log (WAL) 
   extraArgs:
     - --storage.path=/var/lib/alloy/data
+
+  # --- OTLP INGESTION ENDPOINTS ---
+  # Exposes standard OpenTelemetry ports (gRPC and HTTP) to enable 
+  # Alloy to ingest traces, metrics, and logs from external workloads.
+  extraPorts:
+    - name: "otlp-grpc"
+      port: 4317
+      targetPort: 4317
+      protocol: "TCP"
+    - name: "otlp-http"
+      port: 4318
+      targetPort: 4318
+      protocol: "TCP"
 
   # --- HOST ACCESS ---
   # Required mounts for node-level metrics and logs collection.
@@ -43,6 +57,9 @@ alloy:
     varlog: true
     dockercontainers: false
     extra:
+      - name: udev
+        mountPath: /run/udev/data
+        readOnly: true
       - name: rootfs
         mountPath: /host/rootfs
         readOnly: true
@@ -59,6 +76,7 @@ alloy:
     runAsUser: 0
     runAsGroup: 0
     runAsNonRoot: false
+    privileged: true
 
   # --- RESOURCE GUARDS ---
   # Prevent Alloy from over-consuming node resources under load.
@@ -112,6 +130,9 @@ controller:
   # Direct access to host filesystem required for exporters.
   volumes:
     extra:
+      - name: udev
+        hostPath:
+          path: /run/udev/data
       - name: rootfs
         hostPath:
           path: /
@@ -147,7 +168,7 @@ rbac:
 service:
   enabled: true
   type: ClusterIP
-  additionalPorts:
+  ports:
     - name: otlp-grpc
       port: 4317
       targetPort: 4317

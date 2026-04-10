@@ -3,7 +3,7 @@
 # Configures the Prometheus Operator to discover and scrape metrics from 
 # the Alloy service. 
 # -----------------------------------------------------------------------------
-apiVersion: ://coreos.com
+apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: alloy-monitor

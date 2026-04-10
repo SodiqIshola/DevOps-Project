@@ -9,9 +9,13 @@ repositories:
   - name: prometheus-community
     url: https://prometheus-community.github.io/helm-charts
 
-  # Grafana: Primary repository for Loki, Tempo, and Alloy.
+  # Grafana Labs: Primary for Alloy, Beyla, and Enterprise products
   - name: grafana
     url: https://grafana.github.io/helm-charts
+
+  # Community: New home for OSS Grafana, Loki, and Tempo
+  - name: grafana-community
+    url: https://grafana-community.github.io/helm-charts 
 
   # OpenTelemetry: Official charts for OTel collectors and agents.
   - name: open-telemetry
@@ -53,12 +57,14 @@ releases:
       stack: observability
       component: logging
     namespace: monitoring
-    chart: grafana/loki
+    chart: grafana-community/loki 
     version: 6.55.0
     values:
       - values/loki.yaml
     needs:
       - monitoring/kube-prometheus-stack
+
+
 
 
   # -----------------------------------------------------------------
@@ -71,13 +77,12 @@ releases:
       stack: observability
       component: tracing
     namespace: monitoring
-    chart: grafana/tempo
-    version: 1.24.4
+    chart: grafana-community/tempo
+    version: 2.0.0
     values:
       - values/tempo.yaml
     needs:
       - monitoring/kube-prometheus-stack
-
 
   # -----------------------------------------------------------------
   # GRAFANA ALLOY
@@ -91,14 +96,13 @@ releases:
       component: collector
     namespace: monitoring
     chart: grafana/alloy
-    version: 1.6.2
+    version: 1.7.0
     values:
       - values/alloy.yaml
     needs:
       - monitoring/kube-prometheus-stack
       - monitoring/loki
       - monitoring/tempo
-
 
   # -----------------------------------------------------------------
   # OPENTELEMETRY COLLECTOR

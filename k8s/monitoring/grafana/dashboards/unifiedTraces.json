@@ -1,0 +1,255 @@
+{
+  "uid": "node-js-traces-unified-1000",
+  "title": "Node.js Unified Monitoring: Traces & Metrics",
+  "tags": ["nodejs", "traces", "dynamic", "operations"],
+  "timezone": "browser",
+  "schemaVersion": 36,
+  "templating": {
+    "list": [
+      {
+        "name": "namespace",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(traces_spanmetrics_calls_total, k8s_namespace_name)",
+        "refresh": 1,
+        "label": "Namespace",
+        "includeAll": true,
+        "multi": false
+      },
+      {
+        "name": "environment",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(traces_spanmetrics_calls_total, deployment_environment)",
+        "refresh": 1,
+        "label": "Environment",
+        "includeAll": true,
+        "multi": false
+      },
+      {
+        "name": "service",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(traces_spanmetrics_calls_total, service_name)",
+        "refresh": 1,
+        "label": "Service Name",
+        "includeAll": false,
+        "multi": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 100,
+      "title": "Global Infrastructure Overview",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false
+    },
+    {
+      "id": 1,
+      "title": "Global Error Rate (%) by Service",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "100 * (sum(rate(traces_spanmetrics_calls_total{status_code=\"STATUS_CODE_ERROR\",service_name=~\"$service_name\",k8s_namespace_name=~\"$namespace\",deployment_environment=~\"$environment\"}[5m])) by (service_name) / sum(rate(traces_spanmetrics_calls_total{service_name=~\"$service_name\",k8s_namespace_name=~\"$namespace\",deployment_environment=~\"$environment\"}[5m])) by (service_name)) OR on(service_name) vector(0)",
+          "legendFormat": "{{service_name}}"
+        }
+      ]
+    },
+
+    {
+      "id": 7,
+      "title": "Aggregate Error Status: $service",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "(sum(rate(traces_spanmetrics_calls_total{status_code=\"STATUS_CODE_ERROR\", service_name=~\"$service\", k8s_namespace_name=~\"$namespace\", deployment_environment=~\"$environment\"}[5m])) or on() vector(0)) / sum(rate(traces_spanmetrics_calls_total{service_name=~\"$service\", k8s_namespace_name=~\"$namespace\", deployment_environment=~\"$environment\"}[5m]))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 0.01 },
+              { "color": "red", "value": 0.05 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "textMode": "value_and_name"
+      }
+    },
+    {
+      "id": 200,
+      "title": "Service Deep Dive: $service",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
+      "collapsed": false
+    },
+
+
+    {
+      "id": 2,
+      "type": "nodeGraph",
+      "title": "Service Graph - Request Flow",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {}
+        }
+      ],
+      "pluginVersion": "12.4.1",
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "label_join(\r\n  label_join(\r\n    label_join(\r\n      sum(rate(traces_service_graph_request_total{server=~\"$service\", k8s_namespace_name=~\"$namespace\", deployment_environment=~\"$environment\"}[5m])) by (client, server) * 100,\r\n      \"source\", \"\", \"client\"\r\n    ),\r\n    \"target\", \"\", \"server\"\r\n  ),\r\n  \"id\", \"-\", \"client\", \"server\"\r\n)\r\n\r\n",
+          "legendFormat": "__auto",
+          "range": false,
+          "format": "time_series",
+          "instant": true,
+          "exemplar": false
+        }
+      ],
+      "datasource": {
+        "uid": "prometheus",
+        "type": "prometheus"
+      },
+      "options": {
+        "zoomMode": "cooperative",
+        "layoutAlgorithm": "layered",
+        "nodes": {
+          "mainStatUnit": "reqps",
+          "arcs": [
+            {
+              "field": "",
+              "color": "#FA6400"
+            }
+          ]
+        },
+        "edges": {
+          "mainStatUnit": "reqps"
+        }
+      }
+    },
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
+
+    {
+      "id": 3,
+      "title": "Request Rate: $service",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate(traces_spanmetrics_calls_total{service_name=\"$service\", k8s_namespace_name=~\"$namespace\", deployment_environment=~\"$environment\"}[5m])) by (status_code)",
+          "legendFormat": "{{status_code}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "P95 Latency: $service",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 18 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(traces_spanmetrics_duration_milliseconds_bucket{service_name=\"$service\", k8s_namespace_name=~\"$namespace\", deployment_environment=~\"$environment\"}[5m])) by (le, service_name))",
+          "legendFormat": "P95 Latency"
+        }
+      ]
+    },
+    {
+      "title": "Namespace Traffic by HTTP Code ($namespace)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 18 },
+      "targets": [
+        {
+          "expr": "sum(rate(traces_spanmetrics_calls_total{k8s_namespace_name=~\"$namespace\", deployment_environment=~\"$environment\"}[5m])) by (http_status_code)",
+          "legendFormat": "HTTP {{http_status_code}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "bars" } 
+        }
+      }
+    },
+
+    {
+      "id": 300,
+      "title": "Detailed Trace Logs",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 26 },
+      "collapsed": false
+    },
+    {
+      "id": 6,
+      "title": "Recent Traces: $service",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 27 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "options": { "cellHeight": "sm", "showHeader": true },
+
+      "targets": [
+        {
+          "limit": 20,
+          "query": "{resource.service.name=\"$service\" && resource.deployment.environment=~\"$environment\" && resource.k8s.namespace.name=~\"$namespace\"}",
+          "queryType": "traceql",
+          "tableType": "traces",
+          "refId": "A",
+          "metricsQueryType": "range",
+          "serviceMapUseNativeHistograms": false
+        }
+      ]
+    }
+  ]
+}

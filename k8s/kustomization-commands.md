@@ -1,29 +1,12 @@
+<!-- K3d Cluster Management
+This project utilizes k3d to run a local, lightweight Kubernetes cluster (k3s) 
+inside Docker. Use the following commands to provision or teardown your development environment: -->
 
+  # Create the cluster and map ports 80/443 for local Traefik ingress access
+  k3d cluster create my-cluster -p "80:80@loadbalancer" -p "443:443@loadbalancer" --agents 0
 
-<!-- Initialization -->
-  # Automatically creates a kustomization.yaml file in the current directory by detecting all existing Kubernetes manifest files
-    # Use: 
-      kustomize create --autodetect k8s/namespaces
-
-<!-- Manifest Preview & Debugging -->
-  # Dry Run: To see the final YAML that will be generated without actually deploying it
-    # Using kubectl (Built-in) :
-      kubectl kustomize apps/nodejs-app/overlays/prod
-      kubectl kustomize apps/nodejs-app/overlays/dev
-      OR Using Standalone CLIs
-      kustomize build apps/nodejs-app/overlays/dev
-  
-  # Compares the locally generated Kustomize output with the resources currently running in your cluster, helping you spot unintended changes
-    # Use:
-      kubectl diff -k <dir>
-
-<!-- Run this command from the root of your project to apply   -->
-kubectl apply -k apps/nodejs-app/overlays/dev
-
-# Run this command to apply the prod specific configurations: 
-  kubectl apply -k apps/nodejs-app/overlays/prod
-
-
+  # Permanently delete the cluster and wipe all associated local data
+  k3d cluster delete my-cluster
 
 
 
@@ -50,24 +33,28 @@ while keeping our custom overrides in local 'values/' files. -->
 
   # Validate the Helmfile: Checks syntax of helmfile.yaml
   # Ensures values files exist and Detects configuration errors.
-  helmfile -f k8s\monitoring\helm\helmfile.yaml lint
+    helmfile -f k8s\monitoring\helm\helmfile.yaml lint
 
   # Use helmfile to sync all your monitoring stacks (Grafana, Loki, Prometheus, etc.)
-  helmfile -f k8s/monitoring/helm/helmfile.yaml apply
+    helmfile -f k8s/monitoring/helm/helmfile.yaml apply
 
   # If the plugin installation is giving you too much trouble and you just want to deploy your monitoring stack, use sync instead of apply. The sync command doesn't require the diff plugin:
-  helmfile -f k8s/monitoring/helm/helmfile.yaml sync
+    helmfile -f k8s/monitoring/helm/helmfile.yaml sync
 
 
 <!-- Monitoring Logic (Rules & ServiceMonitors)
 Once the engines (Prometheus/Loki/Tempo) are up and their CRDs are established, apply the specific rules and monitors. This step tells the "Engines" exactly what to watch and how to alert. -->
 kubectl apply -k k8s/monitoring
 
+kubectl delete -k k8s/monitoring
+
 
 
 <!-- The Application Layer
 Now that the monitoring "security guard" is active and the dashboards are ready, deploy your actual application. If the app has its own ServiceMonitor, the Prometheus Operator will automatically discover it. -->
 kubectl apply -k k8s/apps/nodejs-app/overlays/development
+
+kubectl delete -k k8s/apps/nodejs-app/overlays/development
 
 
 

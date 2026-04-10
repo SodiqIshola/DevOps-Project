@@ -11,103 +11,812 @@
 # Storage: Local (dev/test). Use S3/GCS in production.
 # =============================================================================
 
-tempo:
+metricsGenerator:
   enabled: true
 
-  # -----------------------------------------------------------------------------
-  # HEALTH CHECKS (IMPORTANT FOR WAL RECOVERY)
-  # -----------------------------------------------------------------------------
-  startupProbe:
-    httpGet:
-      path: /ready
-      port: 3200
-    failureThreshold: 30
-    periodSeconds: 10
+image:
+  repository: grafana/tempo
+  tag: 2.10.1
+  pullPolicy: IfNotPresent
 
-  livenessProbe:
-    httpGet:
-      path: /ready
-      port: 3200
-    periodSeconds: 10
+replicaCount: 1
 
-  readinessProbe:
-    httpGet:
-      path: /ready
-      port: 3200
-    periodSeconds: 10
+# ------------------------
+# RESOURCE LIMITS
+# ------------------------
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
 
-  # -----------------------------------------------------------------------------
-  # CORE CONFIGURATION
-  # -----------------------------------------------------------------------------
-  config: |
-    multitenancy_enabled: false
+ 
+# ------------------------
+# SECURITY CONTEXT
+# ------------------------
+podSecurityContext:
+  fsGroup: 10001
 
-    server:
-      http_listen_port: 3200
+# ------------------------
+# HEALTH CHECKS (WAL RECOVERY)
+# ------------------------
+startupProbe:
+  httpGet:
+    path: /ready
+    port: 3200
+  failureThreshold: 30
+  periodSeconds: 10
 
-    distributor:
-      receivers:
-        otlp:
-          protocols:
-            grpc:
-            http:
+livenessProbe:
+  httpGet:
+    path: /ready
+    port: 3200
+  initialDelaySeconds: 120  
+  periodSeconds: 10
+  failureThreshold: 10   
 
-    ingester:
-      max_block_duration: 5m
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 3200
+  initialDelaySeconds: 30   
+  periodSeconds: 10
 
-    metrics_generator:
-      storage:
-        path: /var/tempo/generator/wal
-        remote_write:
-          - url: http://prometheus-operated.monitoring.svc:9090/api/v1/write
 
-    compactor:
-      compaction:
-        block_retention: 48h
+# ------------------------
+# CORE CONFIGURATION
+# ------------------------
+config: |
+  multitenancy_enabled: false
 
-    # Defines where Tempo stores traces locally. Without this, Tempo has no place to
-    # store ingested traces and will fail to write them.
+  server:
+    http_listen_port: 3200
+
+  distributor:
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+
+  ingester:
+    max_block_duration: 5m
+    lifecycler:
+      ring:
+        kvstore:
+          store: inmemory
+
+  compactor:
+    compaction:
+      block_retention: 48h
+
+  storage:
+    trace:
+      backend: local
+      block:
+        version: vParquet4
+      local:
+        path: /var/tempo/traces
+      wal:
+        path: /var/tempo/wal
+
+  overrides:
+    defaults:
+      metrics_generator:
+        processors:
+          - service-graphs
+          - local-blocks
+
+  metrics_generator:
     storage:
-      trace:
-        backend: local
-        block:
-          version: vParquet4
-        local:
-          path: /var/tempo/traces
-        wal:
-          path: /var/tempo/wal
-        retention: 48h
+      path: /var/tempo/generator/wal
+      remote_write:
+        - url: "http://prometheus-operated.monitoring.svc:9090/api/v1/write"
 
-  # -----------------------------------------------------------------------------
-  # PERSISTENCE
-  # -----------------------------------------------------------------------------
-  persistence:
-    enabled: true
-    storageClassName: local-path
-    accessModes: ["ReadWriteOnce"]
-    size: 2Gi
+    traces_storage:
+      path: /var/tempo/generator/traces 
 
-  # -----------------------------------------------------------------------------
-  # RESOURCE LIMITS
-  # -----------------------------------------------------------------------------
-  resources:
-    requests:
-      cpu: 100m
-      memory: 128Mi
-    limits:
-      cpu: 500m
-      memory: 512Mi
-
-  # -----------------------------------------------------------------------------
-  # PROMETHEUS SCRAPING
-  # -----------------------------------------------------------------------------
-  serviceMonitor:
-    enabled: true
-    interval: 30s
+    processor:
+      local_blocks:
+        flush_to_storage: true
+      service_graphs:
+        dimensions:
+          - deployment.environment
+          - k8s.namespace.name
 
 
+# ------------------------
+# PROMETHEUS METRICS SCRAPING
+# ------------------------
+metrics:
+  enabled: true
+
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  endpoints:
+    - port: tempo-prom-metrics
+      path: /metrics
+  additionalLabels:
+    release: kube-prometheus-stack
+
+# ------------------------
+# PERSISTENCE
+# ------------------------
+persistence:
+  enabled: true
+  storageClass: local-path
+  size: 2Gi
+  accessModes:
+    - ReadWriteOnce
+
+
+networkPolicy:
+  enabled: true
+  # Applies this to the tempo Pods
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: tempo
+      app.kubernetes.io/name: tempo
+  # Explicitly define the types of traffic this policy controls
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    # This allows traffic FROM any pod with the alloy label
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: alloy
+    ports:
+    - protocol: TCP
+      port: 4317 # OTLP gRPC
+    - protocol: TCP
+      port: 4318 # OTLP HTTP
+    - protocol: TCP
+      port: 3200 # Tempo HTTP (for health checks/metrics)
+  
 
 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+# tempo:
+#   enabled: true
+  
+#   mode: singleBinary
+
+#   # tempo:
+#   repository: grafana/tempo 
+#   tag: 2.10.1
+
+#   # -----------------------------------------------------------------------------
+#   # CORE CONFIGURATION (SINGLE BINARY / LOCAL STORAGE)
+#   # -----------------------------------------------------------------------------
+#   createConfigMap: true
+#   config: |
+#     multitenancy_enabled: false
+
+#     server:
+#       http_listen_port: 3200
+
+#     distributor:
+#       receivers:
+#         otlp:
+#           protocols:
+#             grpc:
+#             http:
+
+#     ingester:
+#       max_block_duration: 5m
+#       lifecycler:
+#         strategy: filesystem
+#         ring:
+#           kvstore:
+#             store: inmemory
+#           replication_factor: 1
+
+#     overrides:
+#       defaults:
+#         metrics_generator:
+#           processors:
+#             - span-metrics
+#             - service-graphs
+#             - local-blocks  
+
+#     metrics_generator:
+#       enabled: true
+#       registry:
+#         external_labels:
+#           source: tempo
+
+#       ring:
+#         kvstore:
+#           store: inmemory
+#         replication_factor: 1
+
+#       storage:
+#         path: /var/tempo/generator/wal
+
+#       remote_write:
+#         - url: http://prometheus-operated.monitoring.svc:9090/api/v1/write
+
+#       processors:
+#         - span-metrics
+#         - service-graphs
+#         - local-blocks
+
+#     compactor:
+#       compaction:
+#         block_retention: 48h
+
+#     # Defines where Tempo stores traces locally. Without this, Tempo has no place to
+#     # store ingested traces and will fail to write them.
+#     storage:
+#       trace:
+#         backend: local
+#         block:
+#           version: vParquet4
+#         local:
+#           path: /var/tempo/traces 
+#         wal:
+#           path: /var/tempo/wal
+#         retention: 48h
+
+#   # -----------------------------------------------------------------------------
+#   # PROMETHEUS SCRAPING
+#   # -----------------------------------------------------------------------------
+#   metrics:
+#     enabled: true
+
+# singleBinary:
+#   replicas: 1
+
+#   persistence:
+#     enabled: true
+
+#   securityContext:
+#     runAsUser: 10001
+#     runAsGroup: 10001
+#     fsGroup: 10001
+
+#   # -----------------------------------------------------------------------------
+#   # HEALTH CHECKS (IMPORTANT FOR WAL RECOVERY)
+#   # -----------------------------------------------------------------------------
+#   startupProbe:
+#     httpGet:
+#       path: /ready
+#       port: 3200
+#     failureThreshold: 30
+#     periodSeconds: 10
+
+#   livenessProbe:
+#     httpGet:
+#       path: /ready
+#       port: 3200
+#     periodSeconds: 10
+
+#   readinessProbe:
+#     httpGet:
+#       path: /ready
+#       port: 3200
+#     periodSeconds: 10
+
+
+#   # -----------------------------------------------------------------------------
+#   # RESOURCE LIMITS
+#   # -----------------------------------------------------------------------------
+#   resources:
+#     requests:
+#       cpu: 100m
+#       memory: 128Mi
+#     limits:
+#       cpu: 500m
+#       memory: 512Mi
+
+# serviceMonitor:         
+#   enabled: true 
+#   interval: 30s
+#   endpoints:
+#     - port: tempo-prom-metrics
+#       path: /metrics
+#   additionalLabels:
+#     release: kube-prometheus-stack
+
+# # -----------------------------------------------------------------------------
+# # PERSISTENCE
+# # -----------------------------------------------------------------------------
+# persistence:
+#   enabled: true
+#   storageClass: local-path
+#   size: 2Gi
+#   accessModes:
+#     - ReadWriteOnce
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# tempo:
+#   enabled: true
+
+#   tempo:
+#     repository: grafana/tempo 
+#     tag: 2.10.1
+
+#     # -----------------------------------------------------------------------------
+#     # HEALTH CHECKS (IMPORTANT FOR WAL RECOVERY)
+#     # -----------------------------------------------------------------------------
+#     startupProbe:
+#       httpGet:
+#         path: /ready
+#         port: 3200
+#       failureThreshold: 30
+#       periodSeconds: 10
+
+#     livenessProbe:
+#       httpGet:
+#         path: /ready
+#         port: 3200
+#       periodSeconds: 10
+
+#     readinessProbe:
+#       httpGet:
+#         path: /ready
+#         port: 3200
+#       periodSeconds: 10
+
+#     # -----------------------------------------------------------------------------
+#     # CORE CONFIGURATION (SINGLE BINARY / LOCAL STORAGE)
+#     # -----------------------------------------------------------------------------
+#     config: |
+#       multitenancy_enabled: false
+
+#       server:
+#         http_listen_port: 3200
+
+#       distributor:
+#         receivers:
+#           otlp:
+#             protocols:
+#               grpc:
+#               http:
+
+#       ingester:
+#         max_block_duration: 5m
+#         lifecycler:
+#           strategy: filesystem
+#           ring:
+#             kvstore:
+#               store: inmemory
+#             replication_factor: 1
+
+#       metrics_generator:
+#         registry:
+#           external_labels:
+#             source: tempo
+#         storage:
+#           path: /var/tempo/generator/wal
+#         remote_write:
+#           - url: http://prometheus-operated.monitoring.svc:9090/api/v1/write
+#         processors:
+#           - service-graphs 
+
+#       compactor:
+#         compaction:
+#           block_retention: 48h
+
+#       # Defines where Tempo stores traces locally. Without this, Tempo has no place to
+#       # store ingested traces and will fail to write them.
+#       storage:
+#         trace:
+#           backend: local
+#           block:
+#             version: vParquet4
+#           local:
+#             path: /var/tempo/traces 
+#           wal:
+#             path: /var/tempo/wal
+#           retention: 48h
+
+#     # -----------------------------------------------------------------------------
+#     # PERSISTENCE
+#     # -----------------------------------------------------------------------------
+#     securityContext:
+#       runAsUser: 10001
+#       runAsGroup: 10001
+#       fsGroup: 10001
+
+#     extraVolumes:
+#       - name: local-storage
+#         hostPath:
+#           path: /mnt/data/tempo  
+#           type: DirectoryOrCreate
+
+#     extraVolumeMounts:
+#       - name: local-storage
+#         mountPath: /var/tempo      
+
+#     # -----------------------------------------------------------------------------
+#     # RESOURCE LIMITS
+#     # -----------------------------------------------------------------------------
+#     resources:
+#       requests:
+#         cpu: 100m
+#         memory: 128Mi
+#       limits:
+#         cpu: 500m
+#         memory: 512Mi
+
+#     # -----------------------------------------------------------------------------
+#     # PROMETHEUS SCRAPING
+#     # -----------------------------------------------------------------------------
+#     metrics:
+#       enabled: true
+
+# serviceMonitor:         
+#   enabled: true 
+#   interval: 30s
+#   endpoints:
+#     - port: tempo-prom-metrics
+#       path: /metrics
+#   additionalLabels:
+#     release: kube-prometheus-stack

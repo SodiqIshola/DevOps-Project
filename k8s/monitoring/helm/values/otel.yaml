@@ -169,7 +169,9 @@ ports:
     protocol: TCP
 
   metrics:
-    enabled: false
+    # The metrics port is disabled by default. However you need to enable the port
+    # in order to use the ServiceMonitor (serviceMonitor.enabled) or PodMonitor (podMonitor.enabled).
+    enabled: true
     containerPort: 8888
     servicePort: 8888
     protocol: TCP

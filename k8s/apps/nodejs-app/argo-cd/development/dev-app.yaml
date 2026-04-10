@@ -1,15 +1,26 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: nodejs-app-dev                 # Environment-specific Argo CD application name
+  name: nodejs-app-dev                  # Environment-specific Argo CD application name
   namespace: argocd                     # Namespace where Argo CD controller resides
+
+  labels:
+    # Environment and Tier
+    env: development
+    tier: microservice
+    # Standardized Stack Labels
+    stack: application-delivery
+    app.kubernetes.io/component: nodejs-backend
+    app.kubernetes.io/part-of: dev-environment
+    managed-by: argocd
+
 spec:
   project: dev-apps-project             # RBAC-scoped project for development workloads
 
   source:
-    repoURL: https://github.com/SodiqIshola/DevOps-Project         # Git repository containing Kubernetes manifests
-    targetRevision: HEAD                # Branch/tag/commit to deploy from (latest by default)
-    path: k8s/apps/nodejs-app/overlays/development  # Environment overlay for Kustomize
+    repoURL: https://github.com/SodiqIshola/DevOps-Project
+    targetRevision: HEAD
+    path: k8s/apps/nodejs-app/overlays/development
 
   destination:
     server: https://kubernetes.default.svc  # Target cluster API endpoint
@@ -28,3 +39,14 @@ spec:
         duration: 5s         # Initial wait before first retry
         factor: 2            # Exponential increase multiplier between retries
         maxDuration: 3m      # Upper bound on retry interval
+
+  info:
+    - name: 'Description'
+      value: 'NodeJS microservice instance for the development environment.'
+    - name: 'Delivery'
+      value: 'Deployed via Kustomize overlays under the application-delivery stack.'
+    - name: 'Governance'
+      value: 'Scoped to dev-apps-project with automated drift reconciliation.'
+
+
+

@@ -5,11 +5,7 @@
 # =============================================================================
 # Disables scraping of Kubernetes control plane components.
 # This reduces noise, avoids scrape errors in restricted environments,
-kubernetesServiceMonitors:
-  enabled: false
 kubeApiServer:
-  enabled: false
-kubelet:
   enabled: false
 kubeControllerManager:
   enabled: false
@@ -23,6 +19,73 @@ coreDns:
   enabled: false
 
 
+kubernetesServiceMonitors:
+  # When false, the chart will NOT create default ServiceMonitors for core 
+  # Kubernetes components like the API server, Kubelet, or Kube Proxy.
+  enabled: true
+
+# =============================================================================
+# KUBELET & CADVISOR METRICS CONFIGURATION
+# Enables collection of node and container-level telemetry directly from the 
+# Kubelet. This is required for accurate CPU, memory, filesystem, and network 
+# utilization metrics used in Grafana dashboards and alerting.
+# =============================================================================
+kubelet:
+  enabled: true
+  namespace: kube-system
+
+  serviceMonitor:
+    enabled: true
+
+    # Metric Sources
+    kubelet: true     # Node-level and kubelet internal metrics
+    cAdvisor: true    # Container-level resource metrics (CPU, memory, network)
+    probes: true      # Liveness/readiness probe metrics
+
+    # Connectivity
+    https: true
+    insecureSkipVerify: true   # Required for clusters using self-signed certificates
+    honorLabels: true          # Preserves original Kubernetes labels (pod, namespace)
+
+    # Scrape Behavior
+    cAdvisorInterval: 15s      # Balanced interval for accuracy vs. overhead
+
+    # Relabeling
+    # Ensures the metrics path is preserved for downstream processing/debugging
+    cAdvisorRelabelings:
+      - action: replace
+        sourceLabels: [__metrics_path__]
+        targetLabel: metrics_path
+
+    probesRelabelings:
+      - action: replace
+        sourceLabels: [__metrics_path__]
+        targetLabel: metrics_path
+
+    # Metric Filtering
+    # Removes low-value or high-cardinality metrics while preserving
+    # core signals required for dashboards and alerting.
+    cAdvisorMetricRelabelings:
+      # Drop rarely used CPU scheduling metrics
+      - sourceLabels: [__name__]
+        action: drop
+        regex: 'container_cpu_(cfs_throttled_seconds_total|load_average_10s)'
+
+      # Drop low-signal filesystem metrics
+      - sourceLabels: [__name__]
+        action: drop
+        regex: 'container_fs_(io_current|io_time_seconds_total|io_time_weighted_seconds_total)'
+
+      # Drop non-essential memory breakdown metrics
+      - sourceLabels: [__name__]
+        action: drop
+        regex: 'container_memory_(mapped_file|swap)'
+
+      # Exclude network noise from virtual/CNI interfaces
+      - sourceLabels: [__name__, interface]
+        action: drop
+        regex: 'container_network_.*;(cali|cilium|cni|lxc|nodelocaldns|tunl).*'
+
 # =============================================================================
 # DEFAULT ALERT RULES (ALIGN WITH DISABLED COMPONENTS)
 # =============================================================================
@@ -34,7 +97,7 @@ defaultRules:
     kubeApiserver: false
     kubeApiserverAvailability: false
     kubeApiserverSlos: false
-    kubelet: false
+    kubelet: true
     kubeControllerManager: false
     kubeScheduler: false
     kubeProxy: false
@@ -52,7 +115,7 @@ global:
     create: true                      
     extraRoleRules:
       - apiGroups: [""]
-        resources: ["nodes", "nodes/metrics", "services", "endpoints", "pods"]
+        resources: ["nodes", "nodes/metrics", "nodes/stats", "nodes/proxy", "services", "endpoints", "pods"]
         verbs: ["get", "list", "watch"]
 
 
@@ -172,7 +235,7 @@ prometheus:
     probeSelector: {}
     probeNamespaceSelector: {}
 
-    scrapeConfigSelectorNilUsesHelmValues: true
+    scrapeConfigSelectorNilUsesHelmValues: false
     scrapeConfigSelector: {}
     scrapeConfigNamespaceSelector: {}
 

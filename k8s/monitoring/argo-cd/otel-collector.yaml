@@ -2,13 +2,21 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  # The name for the OTel Collector in your Argo CD dashboard
+
   name: otel-collector
   namespace: argocd
+
   annotations:
-    # Sync Wave 3: This is the final step in the pipeline.
-    # It waits for Prometheus, Loki, Tempo, and Alloy to be fully "Ready".
     argocd.argoproj.io/sync-wave: "3"
+
+  labels:
+    stack: observability
+    component: collector
+    app.kubernetes.io/component: telemetry-agent
+    app.kubernetes.io/part-of: monitoring-stack
+    scope: cross-environment
+    managed-by: argocd
+
 spec:
   # Links to your previously created RBAC project
   project: observability-project
@@ -26,7 +34,6 @@ spec:
     # Source 2: Your private Git repository containing the otel.yaml config
     - repoURL: https://github.com/SodiqIshola/DevOps-Project
       targetRevision: HEAD
-      # Alias used by the Helm source above to locate the values file
       ref: config 
 
   destination:
@@ -50,3 +57,11 @@ spec:
         duration: 10s
         factor: 2
         maxDuration: 3m
+
+  info:
+    - name: 'Description'
+      value: 'OTel Collector dedicated to receiving application traces.'
+    - name: 'Data-Flow'
+      value: 'Ingests OTLP traces and forwards them to Alloy for processing.'
+    - name: 'Dependency'
+      value: 'Sync Wave 3: Starts after Alloy and Tempo are ready to accept span data.'

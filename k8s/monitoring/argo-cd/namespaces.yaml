@@ -2,20 +2,25 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  # Unique name for this Argo CD application (Environment specific)
   name: cluster-namespaces
-  # The namespace where Argo CD controller is running
   namespace: argocd 
   annotations:
-    # Sync Wave -1: Ensures this installs first before prometheus-stack
-    argocd.argoproj.io/sync-wave: "-1"
+    argocd.argoproj.io/sync-wave: "-2"
+
+  labels:
+    # Swapped 'env' for 'scope' to reflect the centralized nature
+    app.kubernetes.io/component: infrastructure-setup
+    app.kubernetes.io/part-of: monitoring-stack
+    scope: cross-environment
+    tier: platform
+    managed-by: argocd
+    
 spec:
   # Uses the 'observability-project' for RBAC permissions instead of 'default'
   project: observability-project
   
   source:
     repoURL: https://github.com/SodiqIshola/DevOps-Project
-    # The branch, tag, or commit hash to sync from (HEAD = latest)
     targetRevision: HEAD
     path: k8s/namespaces 
   
@@ -42,3 +47,12 @@ spec:
         duration: 5s
         factor: 2
         maxDuration: 3m
+
+  info:
+    - name: 'Priority'
+      value: 'Bootstrap phase (Sync Wave -1) to create namespaces before app deployment.'
+    - name: 'Scope'
+      value: 'Shared Infrastructure: Provisions namespaces for centralized monitoring.'
+    - name: 'Stack'
+      value: 'Foundation for unified Prometheus and Grafana observability.'
+

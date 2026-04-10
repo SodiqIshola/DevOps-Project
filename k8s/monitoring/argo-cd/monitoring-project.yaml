@@ -3,6 +3,15 @@ kind: AppProject
 metadata:
   name: observability-project
   namespace: argocd
+
+  labels:
+    stack: observability
+    component: rbac-project
+    scope: cross-environment
+    app.kubernetes.io/component: administrative-policy
+    app.kubernetes.io/part-of: monitoring-stack
+    managed-by: argocd
+
 spec:
   description: "RBAC boundary for observability stack deployments (Prometheus, Loki, Tempo, OpenTelemetry, Alloy) into the monitoring namespace"
   
@@ -22,3 +31,13 @@ spec:
   clusterResourceWhitelist:
     - group: '*'
       kind: '*'
+
+  info:
+    - name: 'Governance'
+      value: 'Restricts observability deployments to the monitoring namespace.'
+    - name: 'Trust-Model'
+      value: 'Allows cluster-scoped resources (CRDs/ClusterRoles) required by monitoring operators.'
+    - name: 'Sources'
+      value: 'Whitelists official Grafana, Prometheus, and OTel Helm registries plus internal Git.'
+
+

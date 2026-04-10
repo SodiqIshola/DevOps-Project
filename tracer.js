@@ -1,39 +1,25 @@
+
 // tracer.js - OpenTelemetry Setup for Traces + Log Correlation
 
 // ============================================================================
 // IMPORTS
 // ============================================================================
 
-// Standard semantic attribute keys (recommended instead of hardcoding strings)
+// Added for explicit status setting
+const { SpanStatusCode } = require('@opentelemetry/api');
+
 const {
   ATTR_SERVICE_NAME,
   ATTR_SERVICE_VERSION,
 } = require('@opentelemetry/semantic-conventions');
 
-// Resource API changed → use this instead of `new Resource()`
 const { resourceFromAttributes } = require('@opentelemetry/resources');
-
-// Pull version from package.json (single source of truth)
 const { version } = require('./package.json');
-
-// Core SDK (manages tracing lifecycle)
 const { NodeSDK } = require('@opentelemetry/sdk-node');
-
-// OTLP exporter (sends traces → OTel Collector → Tempo)
 const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-http');
-
-// Auto-instrumentation (Express, HTTP, etc.)
 const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');
-
-// Winston integration → injects trace_id into logs
 const { WinstonInstrumentation } = require('@opentelemetry/instrumentation-winston');
-
-// Performance + batching
-const { BatchSpanProcessor } = require('@opentelemetry/sdk-trace-base');
-
-// Sampling strategy (controls how many traces are collected)
-const { AlwaysOnSampler } = require('@opentelemetry/sdk-trace-base');
-
+const { BatchSpanProcessor, AlwaysOnSampler } = require('@opentelemetry/sdk-trace-base');
 
 // ============================================================================
 // ENVIRONMENT CONFIG
@@ -41,69 +27,43 @@ const { AlwaysOnSampler } = require('@opentelemetry/sdk-trace-base');
 
 const ENV = process.env.NODE_ENV || 'development';
 
-// Use Kubernetes service name OR fallback for local dev
 const OTEL_ENDPOINT =
   process.env.OTEL_EXPORTER_OTLP_ENDPOINT ||
-  'http://otel-collector:4318/v1/traces'; // change to host.docker.internal for local Docker
-
+  'http://otel-collector:4318/v1/traces';
 
 // ============================================================================
 // RESOURCE (IDENTITY OF YOUR SERVICE)
 // ============================================================================
-// This is CRITICAL — this is how your service appears in:
-// - Grafana
-// - Tempo
-// - Service Map
 
 const resource = resourceFromAttributes({
   [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME || 'node-task-app',
   [ATTR_SERVICE_VERSION]: version || '1.0.0',
-
-  // VERY IMPORTANT → used for filtering in dashboards
   'deployment.environment': ENV,
 });
 
-
 // ============================================================================
-// EXPORTER (SEND DATA TO COLLECTOR)
+// EXPORTER & PROCESSING
 // ============================================================================
 
 const traceExporter = new OTLPTraceExporter({
   url: OTEL_ENDPOINT,
-
-  // Optional: timeout to avoid hanging requests
   timeoutMillis: 10000,
 });
 
-
-// ============================================================================
-// SPAN PROCESSING (PERFORMANCE CONTROL)
-// ============================================================================
-// Instead of sending every span immediately,
-// we batch them → fewer network calls → better performance
-
 const spanProcessor = new BatchSpanProcessor(traceExporter, {
-  maxQueueSize: 2048,          // Max spans waiting to be sent
-  maxExportBatchSize: 512,     // Spans per batch
-  scheduledDelayMillis: 5000,  // Send every 5s
-  exportTimeoutMillis: 30000,  // Timeout per export
+  maxQueueSize: 2048,
+  maxExportBatchSize: 512,
+  scheduledDelayMillis: 5000,
+  exportTimeoutMillis: 30000,
 });
-
-
-// ============================================================================
-// SAMPLING STRATEGY
-// ============================================================================
-// DEV → capture EVERYTHING
-// PROD → reduce noise + cost
 
 const sampler =
   ENV === 'production'
-    ? undefined // let collector decide OR use TraceIdRatioBasedSampler
+    ? undefined 
     : new AlwaysOnSampler();
 
-
 // ============================================================================
-// AUTO-INSTRUMENTATION
+// AUTO-INSTRUMENTATION (Updated with Response Hooks)
 // ============================================================================
 
 const instrumentations = [
@@ -112,20 +72,33 @@ const instrumentations = [
     '@opentelemetry/instrumentation-fs': {
       enabled: false,
     },
+    // Map HTTP status codes to OTel StatusCodes
+    '@opentelemetry/instrumentation-http': {
+      responseHook: (span, response) => {
+        const statusCode = response.statusCode;
+
+        if (statusCode >= 400) {
+          // Explicitly set ERROR for 4xx and 5xx errors
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: `HTTP Error: ${statusCode}`,
+          });
+        } else {
+          // Explicitly set OK for 1xx, 2xx, 3xx (Removes "Unset")
+          span.setStatus({ code: SpanStatusCode.OK });
+        }
+      },
+    },
   }),
 
-  // Attach trace_id to Winston logs
   new WinstonInstrumentation({
     enabled: true,
-
-    // This key will appear in your logs
     logField: 'trace_id',
   }),
 ];
 
-
 // ============================================================================
-// SDK INITIALIZATION
+// SDK INITIALIZATION & START
 // ============================================================================
 
 const sdk = new NodeSDK({
@@ -135,16 +108,10 @@ const sdk = new NodeSDK({
   instrumentations,
 });
 
-
-// ============================================================================
-// START TRACING
-// ============================================================================
-
 sdk.start();
 
 console.log(`OpenTelemetry started (${ENV})`);
 console.log(`Exporting traces to: ${OTEL_ENDPOINT}`);
-
 
 // ============================================================================
 // CLEAN SHUTDOWN (VERY IMPORTANT FOR K8s)
@@ -153,16 +120,12 @@ console.log(`Exporting traces to: ${OTEL_ENDPOINT}`);
 
 process.on('SIGTERM', () => {
   console.log('SIGTERM received. Shutting down tracing...');
-
   sdk.shutdown()
     .then(() => console.log('Tracing terminated successfully'))
     .catch((error) => console.error('Error terminating tracing', error))
     .finally(() => process.exit(0));
 });
 
-
-// ============================================================================
-// EXPORT SDK (optional)
-// ============================================================================
-
 module.exports = sdk;
+
+

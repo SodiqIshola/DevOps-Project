@@ -4,29 +4,34 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: loki
-  # This Application resource lives in the Argo CD namespace to be managed by the controller
   namespace: argocd
   annotations:
-    # Sync Wave 2: Deploys Loki alongside Tempo, but after foundational layers (Wave 0)
-    # ensuring the logging backend is ready before Alloy (Wave 2) starts sending data.
     argocd.argoproj.io/sync-wave: "2"
+
+  labels:
+    stack: observability
+    component: logging
+    app.kubernetes.io/component: backend-engine
+    app.kubernetes.io/part-of: monitoring-stack
+    scope: cross-environment
+    managed-by: argocd
+
+
 spec:
   project: observability-project
   sources:
     # Source 1: Pulls the official Helm Chart logic from the Grafana community
     - repoURL: https://grafana.github.io/helm-charts
       chart: loki
-      targetRevision: 6.55.0 # Pins the chart version to ensure reproducible deployments
+      targetRevision: 6.55.0
       helm:
-        # Multiple sources pattern: references the configuration file from the Git repo below
-        # '$values' is a placeholder that maps to the 'ref: values' identifier
         valueFiles:
           - $values/k8s/monitoring/helm/values/loki.yaml
     
     # Source 2: The Git repository acting as the "Source of Truth" for your custom settings
     - repoURL: https://github.com/SodiqIshola/DevOps-Project 
-      targetRevision: HEAD # Tracks the latest commit on the default branch
-      ref: values # Arbitrary name used as an alias for Helm value mapping above
+      targetRevision: HEAD 
+      ref: values 
 
   destination:
     # Deploys to the local cluster where Argo CD is installed
@@ -47,3 +52,11 @@ spec:
         duration: 10s
         factor: 2
         maxDuration: 3m
+
+  info:
+    - name: 'Description'
+      value: 'Scalable log aggregation system for centralized log storage and querying.'
+    - name: 'Configuration'
+      value: 'Hybrid Helm/Git setup managing retention, storage, and index schemas.'
+    - name: 'Architecture'
+      value: 'Sync Wave 2: Backend storage for logs collected by Alloy and other agents.'

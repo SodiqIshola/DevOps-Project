@@ -2,12 +2,22 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: grafana-monitoring-assets
+  name: rules-servicemonitor-assets
   namespace: argocd
+
   annotations:
-    # Sync Wave 1: Deploying ConfigMaps/Secrets first!
-    # This ensures the '.alloy' config file exists before the Alloy pods start.
     argocd.argoproj.io/sync-wave: "1"
+
+  
+  labels:
+    stack: observability
+    component: monitoring-definitions
+    app.kubernetes.io/component: observability-logic 
+    app.kubernetes.io/part-of: monitoring-stack
+    scope: cross-environment
+    managed-by: argocd
+
+  
 spec:
   project: observability-project
   source:
@@ -30,3 +40,13 @@ spec:
         duration: 10s
         factor: 2
         maxDuration: 3m
+
+  info:
+    - name: 'Description'
+      value: 'Custom PrometheusRules and ServiceMonitors for metrics discovery.'
+    - name: 'Implementation'
+      value: 'Kustomize-driven application of custom observability manifests.'
+    - name: 'Scope'
+      value: 'Purely manifest-based definitions; no active services or collectors.'
+
+
