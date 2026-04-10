@@ -5,10 +5,8 @@ metadata:
   namespace: argocd                     # Namespace where Argo CD controller resides
 
   labels:
-    # Environment and Tier
     env: development
     tier: microservice
-    # Standardized Stack Labels
     stack: application-delivery
     app.kubernetes.io/component: nodejs-backend
     app.kubernetes.io/part-of: dev-environment
@@ -19,7 +17,7 @@ spec:
 
   source:
     repoURL: https://github.com/SodiqIshola/DevOps-Project
-    targetRevision: HEAD
+    targetRevision: main
     path: k8s/apps/nodejs-app/overlays/development
 
   destination:

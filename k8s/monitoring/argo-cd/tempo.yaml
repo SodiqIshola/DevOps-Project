@@ -21,16 +21,16 @@ spec:
 
   # Multiple sources allow combining the official Helm chart with local Git values
   sources:
-    - repoURL: https://grafana.github.io/helm-charts
+    - repoURL: https://grafana-community.github.io/helm-charts
       chart: tempo
-      targetRevision: 2.0.0 # Specific chart version to prevent breaking changes on auto-update
+      targetRevision: 2.0.0
       helm:
         valueFiles:
           # $values refers to the 'ref: values' defined in the second source below
           - $values/k8s/monitoring/helm/values/tempo.yaml
 
     - repoURL: https://github.com/SodiqIshola/DevOps-Project
-      targetRevision: HEAD
+      targetRevision: main
       ref: values 
 
   destination:

@@ -25,6 +25,7 @@ spec:
     - "https://prometheus-community.github.io/helm-charts"
     - "https://grafana.github.io/helm-charts"
     - "https://open-telemetry.github.io/opentelemetry-helm-charts"
+    - "https://grafana-community.github.io/helm-charts"
     - "https://github.com/SodiqIshola/DevOps-Project"
 
   # Allows required cluster-scoped resources (e.g., CRDs, ClusterRoles) for observability components

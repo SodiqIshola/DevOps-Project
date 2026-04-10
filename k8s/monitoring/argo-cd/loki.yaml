@@ -21,7 +21,7 @@ spec:
   project: observability-project
   sources:
     # Source 1: Pulls the official Helm Chart logic from the Grafana community
-    - repoURL: https://grafana.github.io/helm-charts
+    - repoURL: https://grafana-community.github.io/helm-charts
       chart: loki
       targetRevision: 6.55.0
       helm:
@@ -30,14 +30,14 @@ spec:
     
     # Source 2: The Git repository acting as the "Source of Truth" for your custom settings
     - repoURL: https://github.com/SodiqIshola/DevOps-Project 
-      targetRevision: HEAD 
+      targetRevision: main 
       ref: values 
 
   destination:
-    # Deploys to the local cluster where Argo CD is installed
+    # Deploys to the local cluster where Argo CD is installed and target namespace for the actual Loki pods and services
     server: https://kubernetes.default.svc
-    # The target namespace for the actual Loki pods and services
     namespace: monitoring
+    
   syncPolicy:
     automated:
       prune: true      # Garbage collection: deletes resources no longer defined in Git

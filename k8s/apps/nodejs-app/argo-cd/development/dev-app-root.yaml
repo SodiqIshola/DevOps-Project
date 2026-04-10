@@ -17,7 +17,7 @@ spec:
 
   source:
     repoURL: https://github.com/SodiqIshola/DevOps-Project
-    targetRevision: HEAD
+    targetRevision: main
     path: k8s/apps/nodejs-app/argo-cd/development  # Bootstrap folder for dev environment
     directory:
       recurse: true       # Recursively deploy all manifests in the directory

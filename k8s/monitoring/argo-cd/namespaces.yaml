@@ -8,7 +8,6 @@ metadata:
     argocd.argoproj.io/sync-wave: "-2"
 
   labels:
-    # Swapped 'env' for 'scope' to reflect the centralized nature
     app.kubernetes.io/component: infrastructure-setup
     app.kubernetes.io/part-of: monitoring-stack
     scope: cross-environment
@@ -21,11 +20,10 @@ spec:
   
   source:
     repoURL: https://github.com/SodiqIshola/DevOps-Project
-    targetRevision: HEAD
+    targetRevision: main
     path: k8s/namespaces 
   
   destination:
-    # The API server URL of the target cluster (default.svc is the local cluster)
     server: https://kubernetes.default.svc
     # Leave empty because namespace YAML will create its own namespaces
     namespace: "" 

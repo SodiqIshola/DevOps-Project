@@ -32,7 +32,7 @@ spec:
     
     # Source 2: Pulls your custom configuration/values from your Git repository
     - repoURL: https://github.com/SodiqIshola/DevOps-Project
-      targetRevision: HEAD
+      targetRevision: main
       ref: config 
 
   destination:
