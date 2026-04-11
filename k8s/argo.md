@@ -1,40 +1,35 @@
-################################################################################
-# ARGO CD ARCHITECTURE: APP-OF-APPS PATTERN
-# ------------------------------------------------------------------------------
-# 1. THE BOUNDARY (AppProject): dev-project.yaml
-#    - Purpose: Security sandbox and resource governance.
-#    - Whitelists: Restricts Git sources, target clusters, and namespaces.
-#    - Controls: Defines allowed/denied K8s objects (Namespace vs Cluster).
-#    - RBAC: Governs user/service account permissions within the project.
-#
-# 2. THE CONDUCTOR (Root App): dev-app-root.yaml
-#    - Purpose: Orchestrator/Parent Application.
-#    - Target: Points to the 'argocd/' folder containing child App manifests.
-#    - Action: Automatically discovers and syncs multiple Child Applications.
-#    - View: Provides the centralized "Tree View" for the entire environment.
-#
-# 3. THE WORKHORSE (Child App): dev-app.yaml
-#    - Purpose: Individual microservice or workload definition.
-#    - Target: Points to specific Kustomize overlays or Helm charts.
-#    - Action: Maps environment-specific configs (replicas, tags) to the
-#      predefined project boundaries.
-################################################################################
+<!-- K3d Cluster Management
+This project utilizes k3d to run a local, lightweight Kubernetes cluster (k3s) 
+inside Docker. Use the following commands to provision or teardown your development environment: -->
 
+  # Create the cluster and map ports 80/443 for local Traefik ingress access
+  k3d cluster create my-cluster -p "80:80@loadbalancer" -p "443:443@loadbalancer" --agents 0
 
+  # Permanently delete the cluster and wipe all associated local data
+  k3d cluster delete my-cluster
 
 
 <!-- 1. Install Argo CD
 First, provision the Argo CD controller into your cluster. -->
 
-  # Create the dedicated namespace for Argo CD
+  <!-- Option 1: Standard Manifest Install
+  This is the "classic" way to get the controller running. Using --server-side is a pro move—it avoids those annoying "metadata too long" errors with Kubernetes CRDs. -->
+
+    # Create the namespace
     kubectl create namespace argocd
 
-  # Install Argo CD using the official stable manifests
-  # --server-side is recommended to handle large CRDs
+    # Install Argo CD
     kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 
-  # Wait for the controller and server to be fully ready
+    # Wait for the rollout to finish
     kubectl wait --for=condition=Ready pods --all -n argocd --timeout=300s
+
+  <!-- Option 2: The "App-of-Apps" Bootstrap 
+  Using argocd-app.yaml is the GitOps way. Instead of manually managing manifests, you tell Argo CD to manage itself. 
+  Note: For this to work, your argocd-app.yaml usually needs to point to a Git repo where the Argo CD Helm chart or manifests live.  -->
+
+    # Deploy the bootstrap application
+    kubectl apply -f argocd-app.yaml
 
 
 <!-- 2. Retrieve Initial Credentials
@@ -42,6 +37,8 @@ Argo CD generates a temporary admin password during the first installation.  -->
 
   # Extract the base64-encoded password from the secret and decode it
     kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
+
+    kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
 
 
 <!-- Bootstrap the Observability Stack (Root App)
@@ -59,7 +56,6 @@ Since you mapped port 8080 in your k3d command, you can use port-forwarding to r
 
   # Forward traffic from localhost:8080 to the Argo CD server
     kubectl port-forward svc/argocd-server -n argocd 8080:443
-  Use code with caution.
 
 NOTE: You can now log in at https://localhost:8080 using the username admin and the password retrieved in Step 2.
 
@@ -87,42 +83,7 @@ These are your "App-of-Apps" masters. Once applied, they will scan your Git fold
 
 
 
-<!-- USING INGRESS 
-Disable Internal TLS in Argo CD 
-By default, Argo CD forces HTTPS. For Traefik to route traffic on port 80 without a custom certificate, you must configure the Argo CD API server to run in insecure mode.  -->
 
-  # Patch the ConfigMap to disable internal TLS redirection
-    kubectl patch cm argocd-cmd-params-cm -n argocd -p '{"data": {"server.insecure": "true"}}'
-
-  # Restart the server to apply the change
-    kubectl rollout restart deployment argocd-server -n argocd
-
-<!-- Create the Traefik Ingress Resource  -->
-Apply this standard Kubernetes Ingress manifest. Since you mapped -p "80:80@loadbalancer" when creating your cluster, this will expose Argo CD at http://localhost. 
-
-# Save as argocd-ingress.yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: argocd-server-ingress
-  namespace: argocd
-  annotations:
-    # Explicitly tell k3s to use the built-in Traefik controller
-    kubernetes.io/ingress.class: traefik
-spec:
-  rules:
-    - http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: argocd-server
-                port:
-                  number: 80
-
-  # Apply the ingress manifest
-    kubectl apply -f argocd-ingress.yaml
 
 
 

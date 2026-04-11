@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd-server-ingress
+  namespace: argocd
+  annotations:
+    # Explicitly tell k3s to use the built-in Traefik controller
+    kubernetes.io/ingress.class: traefik
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  rules:
+    - host: argocd-local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-server
+                port:
+                  number: 80
