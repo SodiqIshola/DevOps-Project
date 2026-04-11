@@ -1,0 +1,4 @@
+apiVersion: v1                      # Standard API version for core resources
+kind: Namespace                     # Defines this as a "Cluster Folder"
+metadata:
+  name: dev-namespace                         # The unique name for your application environment

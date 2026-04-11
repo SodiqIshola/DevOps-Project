@@ -1,0 +1,44 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: prod-apps-project
+  namespace: argocd
+
+  labels:
+    env: production
+    tier: platform
+    stack: application-delivery
+    component: rbac-project
+    app.kubernetes.io/component: administrative-policy
+    app.kubernetes.io/part-of: prod-environment
+    managed-by: argocd
+
+spec:
+  description: "Strict RBAC boundary for production-grade microservices and workloads."
+  
+  # Restricts deployments to the production namespace
+  destinations:
+    - namespace: prod-namespace
+      server: https://kubernetes.default.svc
+  
+  # Approved source repositories
+  sourceRepos:
+    - "https://github.com/SodiqIshola/DevOps-Project"
+
+  # Allows standard namespaced Kubernetes resources
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'
+
+  # Disallows cluster-scoped resource management
+  clusterResourceWhitelist:
+    - group: ''
+      kind: 'none'
+
+  info:
+    - name: 'Governance'
+      value: 'Production-tier security boundary with strict namespace isolation.'
+    - name: 'Security-Postures'
+      value: 'Zero-trust for cluster-level resources; restricted to namespaced objects only.'
+    - name: 'Audit-Scope'
+      value: 'Enforces GitOps source-of-truth from the authorized production repository.'

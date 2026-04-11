@@ -1,0 +1,25 @@
+
+# -----------------------------------------------------------------------------
+# LIMIT RANGE
+# Establishes default, minimum, and maximum CPU/Memory allocations for containers
+# to enforce namespace-wide resource governance.
+# -----------------------------------------------------------------------------
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: app-limit-range
+spec:
+  limits:
+  - type: Container
+    default:
+      cpu: "500m"
+      memory: "512Mi"
+    defaultRequest:
+      cpu: "250m"
+      memory: "256Mi"
+    max:
+      cpu: "1"
+      memory: "1Gi"
+    min:
+      cpu: "100m"
+      memory: "128Mi"

@@ -1,0 +1,65 @@
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+
+  labels:
+    stack: observability
+    component: metrics
+    app.kubernetes.io/component: backend-engine
+    app.kubernetes.io/part-of: monitoring-stack
+    scope: cross-environment
+    managed-by: argocd
+
+  
+
+spec:
+  # Links to the RBAC project defined below
+  project: observability-project
+  
+  sources:
+    # Source 1: The remote Helm Chart
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: 82.10.3
+      helm:
+        # '$config' matches the 'ref' in the Git source below
+        valueFiles:
+          - $config/k8s/monitoring/helm/values/prometheus-stack.yaml
+    
+    # Source 2: Your private Git repository for configuration
+    - repoURL: https://github.com/SodiqIshola/DevOps-Project
+      targetRevision: main
+      ref: config 
+
+  destination:
+    namespace: monitoring
+    server: https://kubernetes.default.svc
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # Required for Prometheus: Handles large CRDs by using Server-Side Apply
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
+
+  info:
+    - name: 'Description'
+      value: 'Core metrics stack (Prometheus, Grafana, Alertmanager) for all environments.'
+    - name: 'Configuration'
+      value: 'Multi-source setup: Helm chart + custom values from Git repo.'
+    - name: 'Priority'
+      value: 'Sync Wave 0: Core engine; must be healthy before Loki/Tempo/Alloy start.'

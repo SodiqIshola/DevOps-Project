@@ -1,0 +1,538 @@
+# https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/values.yaml
+
+# =============================================================================
+# KUBERNETES CORE COMPONENT SCRAPING (DISABLED)
+# =============================================================================
+# Disables scraping of Kubernetes control plane components.
+# This reduces noise, avoids scrape errors in restricted environments,
+kubeApiServer:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+kubeEtcd:
+  enabled: false
+coreDns:
+  enabled: false
+
+
+kubernetesServiceMonitors:
+  # When false, the chart will NOT create default ServiceMonitors for core 
+  # Kubernetes components like the API server, Kubelet, or Kube Proxy.
+  enabled: true
+
+# =============================================================================
+# KUBELET & CADVISOR METRICS CONFIGURATION
+# Enables collection of node and container-level telemetry directly from the 
+# Kubelet. This is required for accurate CPU, memory, filesystem, and network 
+# utilization metrics used in Grafana dashboards and alerting.
+# =============================================================================
+kubelet:
+  enabled: true
+  namespace: kube-system
+
+  serviceMonitor:
+    enabled: true
+
+    # Metric Sources
+    kubelet: true     # Node-level and kubelet internal metrics
+    cAdvisor: true    # Container-level resource metrics (CPU, memory, network)
+    probes: true      # Liveness/readiness probe metrics
+
+    # Connectivity
+    https: true
+    insecureSkipVerify: true   # Required for clusters using self-signed certificates
+    honorLabels: true          # Preserves original Kubernetes labels (pod, namespace)
+
+    # Scrape Behavior
+    cAdvisorInterval: 15s      # Balanced interval for accuracy vs. overhead
+
+    # Relabeling
+    # Ensures the metrics path is preserved for downstream processing/debugging
+    cAdvisorRelabelings:
+      - action: replace
+        sourceLabels: [__metrics_path__]
+        targetLabel: metrics_path
+
+    probesRelabelings:
+      - action: replace
+        sourceLabels: [__metrics_path__]
+        targetLabel: metrics_path
+
+    # Metric Filtering
+    # Removes low-value or high-cardinality metrics while preserving
+    # core signals required for dashboards and alerting.
+    cAdvisorMetricRelabelings:
+      # Drop rarely used CPU scheduling metrics
+      - sourceLabels: [__name__]
+        action: drop
+        regex: 'container_cpu_(cfs_throttled_seconds_total|load_average_10s)'
+
+      # Drop low-signal filesystem metrics
+      - sourceLabels: [__name__]
+        action: drop
+        regex: 'container_fs_(io_current|io_time_seconds_total|io_time_weighted_seconds_total)'
+
+      # Drop non-essential memory breakdown metrics
+      - sourceLabels: [__name__]
+        action: drop
+        regex: 'container_memory_(mapped_file|swap)'
+
+      # Exclude network noise from virtual/CNI interfaces
+      - sourceLabels: [__name__, interface]
+        action: drop
+        regex: 'container_network_.*;(cali|cilium|cni|lxc|nodelocaldns|tunl).*'
+
+# =============================================================================
+# DEFAULT ALERT RULES (ALIGN WITH DISABLED COMPONENTS)
+# =============================================================================
+# Prevents Prometheus from generating alerts for components that are
+# intentionally disabled above.
+defaultRules:
+  create: true
+  rules:
+    kubeApiserver: false
+    kubeApiserverAvailability: false
+    kubeApiserverSlos: false
+    kubelet: true
+    kubeControllerManager: false
+    kubeScheduler: false
+    kubeProxy: false
+    etcd: false
+    coreDns: false
+
+
+# =============================================================================
+# GLOBAL RBAC CONFIGURATION
+# =============================================================================
+# Defines cluster-wide permissions required for metric discovery.
+# This enables Prometheus to observe workloads across namespaces.
+global:
+  rbac:
+    create: true                      
+    extraRoleRules:
+      - apiGroups: [""]
+        resources: ["nodes", "nodes/metrics", "nodes/stats", "nodes/proxy", "services", "endpoints", "pods"]
+        verbs: ["get", "list", "watch"]
+
+
+
+# =============================================================================
+# PROMETHEUS (CORE METRICS ENGINE)
+# =============================================================================
+prometheus:
+  enabled: true 
+
+  # Service account for Prometheuses to use.
+  serviceAccount:
+    create: true
+    automountServiceAccountToken: true
+
+  # Configuration for Prometheus service
+  service:
+    enabled: true
+    type: ClusterIP
+    port: 9090
+    targetPort: 9090
+
+  # ---------------------------------------------------------------------------
+  # INGRESS (EXTERNAL ACCESS VIA TRAEFIK)
+  # ---------------------------------------------------------------------------
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    annotations:
+      kubernetes.io/ingress.class: traefik
+      traefik.ingress.kubernetes.io/router.entrypoints: web
+    hosts:
+      - prometheus.local
+    paths:
+      - /
+    pathType: Prefix
+
+
+  serviceMonitor:
+    selfMonitor: true
+    interval: 30s 
+
+
+  # ---------------------------------------------------------------------------
+  # PROMETHEUS SPEC (CORE ENGINE SETTINGS)
+  # Importance: This section defines the configuration for the Prometheus 
+  # instance itself. It tells the engine how to find rules, which namespaces 
+  # to watch, and where to send alerts (Alertmanager).
+  # ---------------------------------------------------------------------------
+  prometheusSpec:
+
+    # PortName to use for Prometheus.
+    portName: "http-web"
+
+    # Enables Prometheus to accept remote_write (push-based metrics)
+    enableRemoteWriteReceiver: true
+
+    # -------------------------------------------------------------------------
+    # ALERTING INTEGRATION
+    # -------------------------------------------------------------------------
+    # Defines Alertmanager endpoints for routing alerts.
+    alerting:
+      alertmanagers:
+        - namespace: monitoring
+          name: alertmanager-operated
+          port: web 
+
+
+    # -------------------------------------------------------------------------
+    # CONTAINER PROBE OVERRIDES
+    # -------------------------------------------------------------------------
+    # Custom health checks to handle WAL replay and startup delays.
+    containers:
+      - name: prometheus
+        startupProbe:
+          httpGet:
+            path: /-/ready
+            port: http-web
+          failureThreshold: 30
+          periodSeconds: 10
+
+        livenessProbe:
+          httpGet:
+            path: /-/healthy
+            port: http-web
+          periodSeconds: 10
+          failureThreshold: 3
+
+        readinessProbe:
+          httpGet:
+            path: /-/ready
+            port: http-web
+          periodSeconds: 10
+          failureThreshold: 3
+    
+               
+
+    # -------------------------------------------------------------------------
+    # SERVICE DISCOVERY (CLUSTER-WIDE)
+    # -------------------------------------------------------------------------
+    # Removes Helm label restrictions and enables cross-namespace discovery.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+    serviceMonitorNamespaceSelector: {}
+
+    ruleSelectorNilUsesHelmValues: false
+    ruleSelector:
+      matchLabels:
+        role: alert-rules 
+    ruleNamespaceSelector: {}
+
+    podMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelector: {}
+    podMonitorNamespaceSelector: {}
+
+    probeSelectorNilUsesHelmValues: false
+    probeSelector: {}
+    probeNamespaceSelector: {}
+
+    scrapeConfigSelectorNilUsesHelmValues: false
+    scrapeConfigSelector: {}
+    scrapeConfigNamespaceSelector: {}
+
+    # -------------------------------------------------------------------------
+    # PERFORMANCE TUNING
+    # -------------------------------------------------------------------------
+    scrapeInterval: "30s"
+    evaluationInterval: "30s"
+
+    # -------------------------------------------------------------------------
+    # STORAGE & RETENTION (LOCAL OPTIMIZED)
+    # -------------------------------------------------------------------------
+    retention: 15d
+    retentionSize: "500MB"
+    walCompression: true
+
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 2Gi
+
+    
+    # -------------------------------------------------------------------------
+    # RESOURCE MANAGEMENT
+    # -------------------------------------------------------------------------
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+
+
+  additionalRulesForClusterRole: []
+  additionalServiceMonitors: []
+  additionalPodMonitors: []
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# -----------------------------------------------------------------------------
+# GRAFANA CONFIGURATION
+# -----------------------------------------------------------------------------
+# Grafana provides dashboards and visualization for metrics, logs, and traces.
+# -----------------------------------------------------------------------------
+
+grafana:
+  enabled: true
+
+  # Disable default dashboards (managed via sidecar instead)
+  defaultDashboardsEnabled: false 
+
+  defaultDashboardsTimezone: utc
+  defaultDashboardsEditable: true
+  defaultDashboardsInterval: 1m
+
+    # Security and filesystem access
+  podSecurityContext:
+    fsGroup: 472
+
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 472
+
+  service:
+    portName: http-web
+
+  # Health probes
+  startupProbe:
+    httpGet:
+      path: /api/health
+      port: 3000
+    failureThreshold: 30
+    periodSeconds: 10
+
+  livenessProbe:
+    httpGet:
+      path: /api/health
+      port: 3000
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    failureThreshold: 3
+
+  readinessProbe:
+    httpGet:
+      path: /api/health
+      port: 3000
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    failureThreshold: 10
+
+  
+  # Prometheus scraping of Grafana metrics
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    jobLabel: "app.kubernetes.io/name"
+    path: "/metrics"
+    labels:
+      team: grafana
+
+  # Admin credentials (change in production)
+  adminUser: "admin"
+  adminPassword: "admin"
+
+  # Resource limits
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  # Additional plugins
+  plugins:
+    - grafana-clock-panel
+    - grafana-piechart-panel
+    - grafana-polystat-panel
+
+
+  # --- INGRESS (TRAEFIK) ---
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    annotations:
+      kubernetes.io/ingress.class: traefik
+      traefik.ingress.kubernetes.io/router.entrypoints: web
+    hosts:
+      - grafana.local
+    paths:
+      - /
+    pathType: Prefix
+
+  
+  # RBAC and identity
+  rbac:
+    create: true
+    useClusterRole: true
+    extraClusterRoleRules:
+      - apiGroups: [""]
+        resources: ["configmaps", "secrets"]
+        verbs: ["get", "list", "watch"]
+
+  serviceAccount:
+    create: true
+    autoMount: true
+
+  # Persistent storage
+  persistence:
+    enabled: true                    
+    storageClassName: local-path     
+    accessModes: ["ReadWriteOnce"]   
+    size: 2Gi                        
+    type: pvc  
+
+  
+  # Sidecar provisioning (dashboards, datasources, alerts)
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      labelValue: "1"
+      scProvider: true 
+      searchNamespace: ALL
+      folderAnnotation: "grafana_folder"
+      provider:
+        foldersFromFilesStructure: true
+
+    datasources:
+      enabled: true
+      label: grafana_datasource
+      labelValue: "1"
+      searchNamespace: ALL
+      defaultDatasourceEnabled: false
+
+    alerts:
+      enabled: true
+      label: grafana_alert
+      labelValue: "1"
+      searchNamespace: ALL
+
+  # Retention / cleanup
+  grafana.ini:
+    dashboards:
+      versions_to_keep: 20
+    images:
+      cleanup_enabled: true
+      days_to_keep: 7
+
+
+
+
+
+
+
+
+
+# -----------------------------------------------------------------------------
+# ALERTMANAGER CONFIGURATION
+# Handles alert grouping, deduplication, and routing.
+# -----------------------------------------------------------------------------
+alertmanager:
+  enabled: true
+
+  serviceAccount:
+    create: true
+    automountServiceAccountToken: true
+
+  # Ingress (UI access)
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    annotations:
+      kubernetes.io/ingress.class: traefik
+      traefik.ingress.kubernetes.io/router.entrypoints: web
+    hosts:
+      - alertmanager.local
+    paths:
+      - /
+    pathType: Prefix
+
+  # Internal service + monitoring
+  service:
+    type: ClusterIP
+    port: 9093
+
+  serviceMonitor:
+    selfMonitor: true
+    interval: 30s 
+
+
+  # Alert routing
+  config:
+    global:
+      resolve_timeout: 5m
+
+    route:
+      receiver: 'null-receiver'
+      group_by: ['alertname', 'severity', 'instance']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+
+      routes:
+        # Routes "Critical" alerts to the slack-fallback
+        - match:
+            severity: 'critical'
+          receiver: 'slack-fallback'
+          # Still show it in the UI (null-receiver)
+          continue: true             
+
+        - match:
+            alertname: Watchdog
+          receiver: 'null-receiver'
+
+    inhibit_rules:
+      - source_match:
+          severity: 'critical'
+        target_match:
+          severity: 'warning'
+        equal: ['instance', 'job']
+
+    receivers:
+      - name: 'null-receiver'        
+      
+      - name: 'slack-fallback'
+        slack_configs:
+          - api_url: 'https://hooks.slack.com'
+            channel: '#alerts'
+            send_resolved: true
+            title: '[{{ .Status | toUpper }}] {{ .GroupLabels.alertname }}'
+            text: "Severity: {{ .CommonLabels.severity }}\nSummary: {{ .CommonAnnotations.summary }}"
+
+
+

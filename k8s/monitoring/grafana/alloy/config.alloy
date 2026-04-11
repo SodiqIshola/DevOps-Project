@@ -1,0 +1,426 @@
+// ============================================================================
+// NODE METRICS (HOST-LEVEL VISIBILITY)
+// ----------------------------------------------------------------------------
+// Collects low-level system metrics directly from the host (CPU, memory, disk,
+// network). This provides infrastructure health independent of Kubernetes.
+// ============================================================================
+prometheus.exporter.unix "node_exporter" {
+  // Minimal but sufficient collectors for most observability use-cases
+  set_collectors = ["cpu", "meminfo", "diskstats", "netdev"]
+
+  // Required for containerized environments to access host filesystem
+  procfs_path  = "/host/proc"
+  sysfs_path   = "/host/sys"
+  rootfs_path  = "/host/rootfs"
+}
+
+// Scrapes node exporter and forwards to Prometheus (push model via remote_write)
+prometheus.scrape "system_metrics" {
+  targets    = prometheus.exporter.unix.node_exporter.targets
+  forward_to = [prometheus.remote_write.local_prometheus.receiver]
+}
+
+
+// ============================================================================
+// CONTAINER METRICS (KUBELET / CADVISOR)
+// ----------------------------------------------------------------------------
+// Collects per-container metrics (CPU, memory, network, filesystem).
+// This complements node metrics by providing workload-level visibility.
+// ============================================================================
+discovery.kubernetes "kubelet" {
+  role = "node"
+}
+
+prometheus.scrape "kubelet_metrics" {
+  targets      = discovery.kubernetes.kubelet.targets
+  scheme       = "http"                  // Assumes kubelet allows non-TLS access
+  metrics_path = "/metrics/cadvisor"
+
+  // Route through enrichment layer before storage
+  forward_to = [prometheus.relabel.environment_enrichment.receiver]
+}
+
+
+// ============================================================================
+// METRIC ENRICHMENT (ENVIRONMENT NORMALIZATION)
+// ----------------------------------------------------------------------------
+// Standardizes the "environment" label across all metrics.
+//
+// Strategy (priority order):
+// 1. Pod naming convention (fallback)
+// 2. Explicit Kubernetes labels (override)
+// 3. Namespace mapping (source of truth)
+// ============================================================================
+prometheus.relabel "environment_enrichment" {
+  forward_to = [prometheus.remote_write.local_prometheus.receiver]
+
+  // Extract from pod name (e.g., myapp-development)
+  rule {
+    action        = "replace"
+    source_labels = ["pod"]
+    regex         = ".*-(development|production)$"
+    target_label  = "environment"
+    replacement   = "$1"
+  }
+
+  // Override if explicitly defined by developers
+  rule {
+    action        = "replace"
+    source_labels = ["container_label_environment"]
+    target_label  = "environment"
+  }
+
+  // Namespace-based mapping (authoritative)
+  rule {
+    action        = "replace"
+    source_labels = ["namespace"]
+    regex         = "dev-namespace"
+    target_label  = "environment"
+    replacement   = "development"
+  }
+
+  rule {
+    action        = "replace"
+    source_labels = ["namespace"]
+    regex         = "prod-namespace"
+    target_label  = "environment"
+    replacement   = "production"
+  }
+
+  // Normalize shorthand values
+  rule {
+    action        = "replace"
+    source_labels = ["environment"]
+    regex         = "^dev$"
+    target_label  = "environment"
+    replacement   = "development"
+  }
+}
+
+
+// ============================================================================
+// LOG PIPELINE (KUBERNETES → LOKI)
+// ----------------------------------------------------------------------------
+// Discovers all pods, extracts relevant metadata, parses application logs,
+// and forwards structured logs to Loki.
+//
+// Design:
+// - Kubernetes metadata is the source of truth for environment
+// - Application logs (Winston JSON) provide service-level context
+// ============================================================================
+discovery.kubernetes "pods" {
+  role = "pod"
+}
+
+// Extract only the metadata we care about (keeps labels clean)
+discovery.relabel "pod_metadata" {
+  targets = discovery.kubernetes.pods.targets
+
+  rule {
+    source_labels = ["__meta_kubernetes_namespace"]
+    target_label  = "namespace"
+  }
+
+  rule {
+    source_labels = ["__meta_kubernetes_pod_label_environment"]
+    target_label  = "k8s_environment"
+  }
+}
+
+// Start log tailing for all discovered pods
+loki.source.kubernetes "local_logs" {
+  targets    = discovery.relabel.pod_metadata.output
+  forward_to = [loki.process.process_logs.receiver]
+}
+
+// ============================================================================
+// LOG PROCESSING (STRUCTURING + LABELING)
+// ----------------------------------------------------------------------------
+// Converts raw container logs into structured, queryable logs.
+//
+// Pipeline:
+// 1. Parse container runtime format (CRI)
+// 2. Extract JSON fields (Winston logs)
+// 3. Apply application-level labels
+// 4. Override with Kubernetes metadata (source of truth)
+// ============================================================================
+loki.process "process_logs" {
+  stage.cri {}
+
+  // Parse structured logs from application
+  stage.json {
+    expressions = {
+      log_level   = "level",
+      log_service = "service",
+      log_env     = "env",
+      log_status  = "status",
+      message     = "message",
+    }
+  }
+
+  // Base labels from application logs
+  stage.labels {
+    values = {
+      service     = "log_service",
+      level       = "log_level",
+      status      = "log_status",
+      environment = "log_env",
+    }
+  }
+
+  // Override with Kubernetes metadata (ensures consistency)
+  stage.labels {
+    values = {
+      environment = "k8s_environment",
+      namespace   = "namespace",
+    }
+  }
+
+  forward_to = [loki.write.local_loki.receiver]
+}
+
+// Push logs via Loki Gateway (scalable entrypoint)
+loki.write "local_loki" {
+  endpoint {
+    url = "http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push"
+  }
+}
+
+
+// ============================================================================
+// DISTRIBUTED TRACING PIPELINE (OTEL → TEMPO + METRICS)
+// ----------------------------------------------------------------------------
+// Ingests traces, enriches them with environment context, and:
+// - Stores raw traces in Tempo
+// - Generates RED metrics for Prometheus (via spanmetrics)
+// ============================================================================
+otelcol.receiver.otlp "from_otel_collector" {
+  grpc { endpoint = "0.0.0.0:4317" }
+
+  output {
+    traces = [otelcol.processor.attributes.enrich_prod.input]
+  }
+}
+
+// ============================================================================
+// TRACE ENRICHMENT (ENVIRONMENT TAGGING)
+// ----------------------------------------------------------------------------
+// Assigns "environment" based on namespace.
+// Ensures traces, logs, and metrics share consistent labels.
+// ============================================================================
+
+
+// ------------------------
+// PRODUCTION
+// ------------------------
+otelcol.processor.attributes "enrich_prod" {
+  action {
+    key    = "environment"
+    value  = "production"
+    action = "upsert"
+  }
+
+  include {
+    match_type = "regexp"
+
+    attribute {
+      key   = "k8s.namespace.name"
+      value = "prod-namespace"
+    }
+  }
+
+  output {
+    traces = [otelcol.processor.attributes.enrich_dev.input]
+  }
+}
+
+
+// ------------------------
+// DEVELOPMENT
+// ------------------------
+otelcol.processor.attributes "enrich_dev" {
+  action {
+    key    = "environment"
+    value  = "development"
+    action = "upsert"
+  }
+
+  include {
+    match_type = "regexp"
+
+    attribute {
+      key   = "k8s.namespace.name"
+      value = "dev-namespace"
+    }
+  }
+
+  output {
+    traces = [otelcol.processor.attributes.enrich_default.input]
+  }
+}
+
+
+// ------------------------
+// FALLBACK
+// ------------------------
+otelcol.processor.attributes "enrich_default" {
+  action {
+    key    = "environment"
+    value  = "unknown"
+    action = "insert"
+  }
+
+  output {
+    traces = [
+      otelcol.connector.spanmetrics.translator.input,
+      otelcol.exporter.otlp.to_tempo.input,
+    ]
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// // Production
+// otelcol.processor.attributes "enrich_prod" {
+//   action {
+//     key    = "environment"
+//     value  = "production"
+//     action = "upsert"
+//   }
+
+//   include {
+//     match_type = "strict"
+//     attribute {
+//       key   = "k8s.namespace.name"
+//       value = "prod-namespace"
+//     }
+//   }
+
+//   output {
+//     traces = [otelcol.processor.attributes.enrich_dev.input]
+//   }
+// }
+
+// // Development
+// otelcol.processor.attributes "enrich_dev" {
+//   action {
+//     key    = "environment"
+//     value  = "development"
+//     action = "upsert"
+//   }
+
+//   include {
+//     match_type = "strict"
+//     attribute {
+//       key   = "k8s.namespace.name"
+//       value = "dev-namespace"
+//     }
+//   }
+
+//   output {
+//     traces = [otelcol.processor.attributes.enrich_default.input]
+//   }
+// }
+
+// // Fallback (ensures label always exists)
+// otelcol.processor.attributes "enrich_default" {
+//   action {
+//     key    = "environment"
+//     value  = "unknown"
+//     action = "insert"
+//   }
+
+//   output {
+//     traces = [
+//       otelcol.connector.spanmetrics.translator.input,
+//       otelcol.exporter.otlp.to_tempo.input,
+//     ]
+//   }
+// }
+
+// ============================================================================
+// SPAN → METRICS (RED METRICS GENERATION)
+// ----------------------------------------------------------------------------
+// Converts traces into Prometheus metrics for alerting:
+// - Request count
+// - Error rate
+// - Duration (latency)
+// ============================================================================
+otelcol.connector.spanmetrics "translator" {
+
+  namespace = "traces_spanmetrics"
+
+  dimension { name = "deployment.environment" }
+  dimension { name = "k8s.namespace.name" }
+  dimension { name = "http.method" }
+  dimension { name = "http.status_code" }
+  dimension { name = "service.name" }
+  dimension { name = "span.name" }
+
+  histogram {
+    explicit {
+      buckets = ["100ms", "300ms", "500ms", "1s", "2s", "5s"]
+    }
+  }
+
+
+  output {
+    metrics = [otelcol.exporter.prometheus.local_prometheus.input]
+  }
+
+}
+
+// ============================================================================
+// EXPORTERS (TEMPO + PROMETHEUS)
+// ============================================================================
+otelcol.exporter.otlp "to_tempo" {
+  client {
+    endpoint = "tempo.monitoring.svc.cluster.local:4317"
+    tls { insecure = true }
+  }
+}
+
+otelcol.exporter.prometheus "local_prometheus" {
+  forward_to = [prometheus.remote_write.local_prometheus.receiver]
+}
+
+
+// ============================================================================
+// PROMETHEUS REMOTE WRITE (FINAL DESTINATION)
+// ----------------------------------------------------------------------------
+// Central sink for all metrics (node, container, and span-derived).
+// ============================================================================
+prometheus.remote_write "local_prometheus" {
+  endpoint {
+    url = "http://prometheus-operated.monitoring.svc:9090/api/v1/write"
+  }
+}

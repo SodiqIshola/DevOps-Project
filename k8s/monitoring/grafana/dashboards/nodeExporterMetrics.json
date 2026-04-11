@@ -1,0 +1,50 @@
+
+{
+  "uid": "node-exporter-cluster",
+  "title": "Cluster Node Metrics",
+  "tags": ["node", "prometheus", "infrastructure"],
+  "timezone": "browser",
+  "schemaVersion": 36,
+  "panels": [
+    {
+      "title": "CPU Usage (Cores)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "rate(node_cpu_seconds_total{mode!='idle'}[1m])", "legendFormat": "{{instance}}" }
+      ]
+    },
+    {
+      "title": "Memory Usage",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes", "legendFormat": "{{instance}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes" } }
+    },
+    {
+      "title": "Disk I/O",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 6 },
+      "targets": [
+        { "expr": "rate(node_disk_reads_completed_total[5m])", "legendFormat": "Reads/sec" },
+        { "expr": "rate(node_disk_writes_completed_total[5m])", "legendFormat": "Writes/sec" }
+      ]
+    },
+    {
+      "title": "Network Traffic",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 12 },
+      "targets": [
+        { "expr": "rate(node_network_receive_bytes_total[5m])", "legendFormat": "RX" },
+        { "expr": "rate(node_network_transmit_bytes_total[5m])", "legendFormat": "TX" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes" } }
+    }
+  ]
+}

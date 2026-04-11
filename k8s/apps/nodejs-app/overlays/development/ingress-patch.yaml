@@ -1,0 +1,17 @@
+# Patch to override the default Ingress host with the development-specific domain
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: node-app-ingress
+spec:
+  rules:
+  - host: nodeapp.dev.internal
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: node-app-service
+            port:
+              name: http

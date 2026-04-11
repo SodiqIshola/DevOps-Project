@@ -1,0 +1,123 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": null,
+  "panels": [
+    {
+      "type": "graph",
+      "title": "OTel Accepted Spans Rate",
+      "targets": [
+        {
+          "expr": "rate(otelcol_receiver_accepted_spans{receiver=\"otlp\", job=\"otel-collector-internal\"}[1m])",
+          "legendFormat": "{{receiver}} spans/sec",
+          "refId": "A"
+        }
+      ],
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "lines": true,
+      "linewidth": 2,
+      "fill": 1
+    },
+    {
+      "type": "graph",
+      "title": "OTel Exported Spans to Tempo Rate",
+      "targets": [
+        {
+          "expr": "rate(otelcol_exporter_sent_spans{exporter=\"otlp/tempo\", job=\"otel-collector-internal\"}[1m])",
+          "legendFormat": "tempo spans/sec",
+          "refId": "C"
+        }
+      ],
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "lines": true,
+      "linewidth": 2,
+      "fill": 1
+    },
+    {
+      "type": "timeseries",
+      "title": "Tempo: Trace Count (Rate)",
+      "targets": [
+        {
+          "queryType": "traces",
+          "expr": "service=\"otelcol-contrib\" | increase(count() by [service], 5m)",
+          "refId": "G"
+        }
+      ],
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 10 },
+              { "color": "red", "value": 50 }
+            ]
+          }
+        }
+      },
+      "options": { "legend": { "displayMode": "list" } },
+      "gridPos": { "x": 0, "y": 18, "w": 12, "h": 6 }
+    },
+    {
+      "type": "table",
+      "title": "Tempo: Top Operations",
+      "targets": [
+        {
+          "queryType": "traces",
+          "expr": "service=\"otelcol-contrib\" | group_by(operationName) | count()",
+          "refId": "H"
+        }
+      ],
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "field": "Count", "desc": true }]
+      },
+      "gridPos": { "x": 12, "y": 18, "w": 12, "h": 6 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Tempo: Latency Distribution",
+      "targets": [
+        {
+          "queryType": "traces",
+          "expr": "service=\"otelcol-contrib\" | duration_ms",
+          "refId": "I"
+        }
+      ],
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 200 },
+              { "color": "red", "value": 500 }
+            ]
+          },
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "options": { "legend": { "displayMode": "table" } },
+      "gridPos": { "x": 0, "y": 24, "w": 24, "h": 6 }
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": ["tempo", "otel", "collector"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Tempo Collector Metrics (Rate)",
+  "uid": "tempo-collector-metrics",
+  "version": 6
+}

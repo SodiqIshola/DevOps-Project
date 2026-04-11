@@ -1,0 +1,67 @@
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+
+  name: otel-collector
+  namespace: argocd
+
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+
+  labels:
+    stack: observability
+    component: collector
+    app.kubernetes.io/component: telemetry-agent
+    app.kubernetes.io/part-of: monitoring-stack
+    scope: cross-environment
+    managed-by: argocd
+
+spec:
+  # Links to your previously created RBAC project
+  project: observability-project
+  
+  sources:
+    # Source 1: The official OpenTelemetry Helm Chart
+    - repoURL: https://open-telemetry.github.io/opentelemetry-helm-charts
+      chart: opentelemetry-collector
+      targetRevision: 0.147.0
+      helm:
+        # '$config' points to the Git repo defined in the second source
+        valueFiles:
+          - $config/k8s/monitoring/helm/values/otel.yaml
+    
+    # Source 2: Your private Git repository containing the otel.yaml config
+    - repoURL: https://github.com/SodiqIshola/DevOps-Project
+      targetRevision: main
+      ref: config 
+
+  destination:
+    # Deploys to the centralized monitoring namespace
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # Recommended for OTel: ensures large configuration changes apply cleanly
+      - ServerSideApply=true
+    
+    # Retry logic to handle any transient network issues during the chart pull
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
+
+  info:
+    - name: 'Description'
+      value: 'OTel Collector dedicated to receiving application traces.'
+    - name: 'Data-Flow'
+      value: 'Ingests OTLP traces and forwards them to Alloy for processing.'
+    - name: 'Dependency'
+      value: 'Sync Wave 3: Starts after Alloy and Tempo are ready to accept span data.'

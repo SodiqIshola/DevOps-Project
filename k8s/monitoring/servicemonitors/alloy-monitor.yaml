@@ -1,0 +1,28 @@
+# -----------------------------------------------------------------------------
+# SERVICE MONITOR: GRAFANA ALLOY
+# Configures the Prometheus Operator to discover and scrape metrics from 
+# the Alloy service. 
+# -----------------------------------------------------------------------------
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: alloy-monitor
+  labels:
+    # Must match the serviceMonitorSelector defined in your Prometheus stack
+    release: kube-prometheus-stack
+    app: grafana-alloy
+spec:
+  # Target discovery based on the Alloy service labels
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: alloy
+  # Restricts discovery to the specific namespace where Alloy is deployed.
+  namespaceSelector:
+    matchNames:
+      - monitoring
+
+  endpoints:
+    - port: http-metrics
+      interval: 30s
+      path: /metrics
+      scheme: http

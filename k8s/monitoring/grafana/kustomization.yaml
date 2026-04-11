@@ -1,0 +1,149 @@
+# =============================================================================
+# COMBINED MONITORING KUSTOMIZATION
+# Purpose: The "Master Factory." This file converts your local configuration 
+# files into Kubernetes ConfigMaps, ensuring Grafana and Alloy automatically 
+# discover your alerts, dashboards, and datasources.
+# =============================================================================
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+#  Ensures everything is deployed into your monitoring stack.
+namespace: monitoring
+
+# --- Turns raw files into ConfigMaps ---
+configMapGenerator:
+  # ---------------------------------------------------------------------------
+  # 1. ALLOY CONFIG: The Telemetry Engine
+  # Importance: This is the brain of your agent. It defines how logs, metrics, 
+  # and traces are collected and where they are sent (Loki/Prometheus).
+  # ---------------------------------------------------------------------------
+  - name: alloy-config
+    files:
+      - config.alloy=alloy/config.alloy
+    options:
+      labels:
+        app.kubernetes.io/name: alloy
+
+  # ---------------------------------------------------------------------------
+  # 2. LOKI ALERTS: Log-Based Alerting
+  # Importance: Scans incoming logs for patterns (like "Error" or "Panic"). 
+  # The 'grafana_alert' label triggers the sidecar to import these into the UI.
+  # ---------------------------------------------------------------------------
+  - name: loki-alerts
+    files:
+      - loki-alerts.yaml=loki-rules/loki-alerts.yaml
+    options:
+      labels:
+        grafana_alert: "1"
+        team: platform
+
+  # ---------------------------------------------------------------------------
+  # 3. DATASOURCES: The Data Connections
+  # Importance: These files tell Grafana *where* your data lives. Without 
+  # these, your dashboards will be empty "No Data" boxes.
+  # ---------------------------------------------------------------------------
+  - name: grafana-datasources
+    files:
+      - loki.yaml=datasources/loki.yaml
+      - tempo.yaml=datasources/tempo.yaml
+      - prometheus.yaml=datasources/prometheus.yaml
+    options:
+      labels:
+        grafana_datasource: "1" # SIDE-EFFECT: Auto-provisions the connections
+
+  # ---------------------------------------------------------------------------
+  # 4. DASHBOARDS: The Visual UI
+  # Importance: Separated into logical groups. Using 'annotations' ensures 
+  # Grafana organizes these into nice folders (Metrics, Logs, Traces) 
+  # instead of one giant, messy list.
+  # ---------------------------------------------------------------------------
+  # METRICS FOLDER
+  - name: infrastructure-dashboards
+    files:
+      - developmentMetrics.json=dashboards/developmentMetrics.json
+      - productionMetrics.json=dashboards/productionMetrics.json
+      - nodeExporterMetrics.json=dashboards/nodeExporterMetrics.json
+      - unifiedMetrics.json=dashboards/unifiedMetrics.json
+    options:
+      labels: { grafana_dashboard: "1" }
+      annotations: { grafana_folder: "Infrastructure Metrics" }
+  
+  # LOGGING FOLDER
+  - name: dashboard-logs
+    files:
+      - developmentLogs.json=dashboards/developmentLogs.json
+      - productionLogs.json=dashboards/productionLogs.json
+    options:
+      labels: { grafana_dashboard: "1" }
+      annotations: { grafana_folder: "Application Logs" }
+
+  # TRACING FOLDER
+  - name: dashboard-traces
+    files:
+      - unifiedTraces.json=dashboards/unifiedTraces.json
+    options:
+      labels: { grafana_dashboard: "1" }
+      annotations: { grafana_folder: "Distributed Tracing" }
+
+
+# --- GLOBAL SETTINGS ---
+generatorOptions:
+  # THE STABILIZER: Prevents Kustomize from adding random hashes (like -f98gh2) 
+  # to the ConfigMap names. This keeps your Helm/App references predictable.
+  disableNameSuffixHash: true
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# # -----------------------------------------------------------------------------
+# # GRAFANA DASHBOARDS (FOLDER-BASED ORGANIZATION)
+# # Importance: Splitting these ensures that Logs, Metrics, and Traces are 
+# # organized into separate folders in the Grafana UI for better navigation.
+# # -----------------------------------------------------------------------------
+# configMapGenerator:
+#   # 1. METRICS FOLDER
+#   - name: dashboard-metrics
+#     files:
+#       - prometheus.json=grafana/dashboards/prometheus.json
+#     options:
+#       labels:
+#         grafana_dashboard: "1"
+#       annotations:
+#         grafana_dashboard_folder: "Infrastructure Metrics"
+
+#   # 2. LOGGING FOLDER
+#   - name: dashboard-logs
+#     files:
+#       - loki.json=grafana/dashboards/loki.json
+#     options:
+#       labels:
+#         grafana_dashboard: "1"
+#       annotations:
+#         grafana_dashboard_folder: "Application Logs"
+
+#   # 3. TRACING FOLDER
+#   - name: dashboard-traces
+#     files:
+#       - tempo.json=grafana/dashboards/tempo.json
+#     options:
+#       labels:
+#         grafana_dashboard: "1"
+#       annotations:
+#         grafana_dashboard_folder: "Distributed Tracing"

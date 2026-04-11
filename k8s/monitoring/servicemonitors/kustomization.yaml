@@ -1,0 +1,3 @@
+resources:
+  - alloy-monitor.yaml
+  - prom-monitor.yaml

@@ -1,0 +1,44 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: observability-project
+  namespace: argocd
+
+  labels:
+    stack: observability
+    component: rbac-project
+    scope: cross-environment
+    app.kubernetes.io/component: administrative-policy
+    app.kubernetes.io/part-of: monitoring-stack
+    managed-by: argocd
+
+spec:
+  description: "RBAC boundary for observability stack deployments (Prometheus, Loki, Tempo, OpenTelemetry, Alloy) into the monitoring namespace"
+  
+  # Deployment scope restricted to the monitoring namespace within the local cluster
+  destinations:
+    - namespace: monitoring
+      server: https://kubernetes.default.svc
+  
+  # Approved source repositories for Helm charts and internal manifests
+  sourceRepos:
+    - "https://prometheus-community.github.io/helm-charts"
+    - "https://grafana.github.io/helm-charts"
+    - "https://open-telemetry.github.io/opentelemetry-helm-charts"
+    - "https://grafana-community.github.io/helm-charts"
+    - "https://github.com/SodiqIshola/DevOps-Project"
+
+  # Allows required cluster-scoped resources (e.g., CRDs, ClusterRoles) for observability components
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'
+
+  info:
+    - name: 'Governance'
+      value: 'Restricts observability deployments to the monitoring namespace.'
+    - name: 'Trust-Model'
+      value: 'Allows cluster-scoped resources (CRDs/ClusterRoles) required by monitoring operators.'
+    - name: 'Sources'
+      value: 'Whitelists official Grafana, Prometheus, and OTel Helm registries plus internal Git.'
+
+

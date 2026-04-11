@@ -1,0 +1,56 @@
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cluster-namespaces
+  namespace: argocd 
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+
+  labels:
+    app.kubernetes.io/component: infrastructure-setup
+    app.kubernetes.io/part-of: monitoring-stack
+    scope: cross-environment
+    tier: platform
+    managed-by: argocd
+    
+spec:
+  # Uses the 'observability-project' for RBAC permissions instead of 'default'
+  project: observability-project
+  
+  source:
+    repoURL: https://github.com/SodiqIshola/DevOps-Project
+    targetRevision: main
+    path: k8s/namespaces 
+  
+  destination:
+    server: https://kubernetes.default.svc
+    # Leave empty because namespace YAML will create its own namespaces
+    namespace: "" 
+
+  syncPolicy:
+    automated:
+      # Deletes resources from the cluster that are no longer in Git
+      prune: true
+      # Automatically syncs the cluster back to Git state if someone changes it manually
+      selfHeal: true
+    syncOptions:
+      # Creates the destination namespace automatically if it doesn't exist
+      - CreateNamespace=true
+    
+    # Retry logic to handle intermittent failures (like the network timeouts we saw earlier)
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  info:
+    - name: 'Priority'
+      value: 'Bootstrap phase (Sync Wave -1) to create namespaces before app deployment.'
+    - name: 'Scope'
+      value: 'Shared Infrastructure: Provisions namespaces for centralized monitoring.'
+    - name: 'Stack'
+      value: 'Foundation for unified Prometheus and Grafana observability.'
+

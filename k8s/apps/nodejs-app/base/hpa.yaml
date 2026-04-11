@@ -1,0 +1,28 @@
+# -----------------------------------------------------------------------------
+# HORIZONTAL POD AUTOSCALER
+# Automatically adjusts the number of Pods based on CPU utilization to maintain
+# performance while optimizing resource usage.
+# -----------------------------------------------------------------------------
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: node-app-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: node-app
+  minReplicas: 2
+  maxReplicas: 4
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+
+# -----------------------------------------------------------------------------
+# NOTE: Ensure Metrics Server is installed for HPA to function correctly.
+# Without it, CPU/Memory metrics will report as <unknown>.
+# -----------------------------------------------------------------------------

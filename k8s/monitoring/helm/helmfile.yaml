@@ -1,0 +1,127 @@
+# -------------------------------------------------------------------
+# HELM REPOSITORIES
+# -------------------------------------------------------------------
+# External sources for Helm charts. These are synchronized before 
+# any releases are deployed to the cluster.
+repositories:
+
+  # Prometheus Community: Standard source for the kube-prometheus-stack.
+  - name: prometheus-community
+    url: https://prometheus-community.github.io/helm-charts
+
+  # Grafana Labs: Primary for Alloy, Beyla, and Enterprise products
+  - name: grafana
+    url: https://grafana.github.io/helm-charts
+
+  # Community: New home for OSS Grafana, Loki, and Tempo
+  - name: grafana-community
+    url: https://grafana-community.github.io/helm-charts 
+
+  # OpenTelemetry: Official charts for OTel collectors and agents.
+  - name: open-telemetry
+    url: https://open-telemetry.github.io/opentelemetry-helm-charts
+
+
+
+# -------------------------------------------------------------------
+# HELM RELEASE DEFINITIONS
+# -------------------------------------------------------------------
+# Applications deployed via Helm. The 'needs' field ensures components 
+# install in the correct order based on their dependencies.
+releases:
+
+  # -----------------------------------------------------------------
+  # KUBE-PROMETHEUS-STACK
+  # -----------------------------------------------------------------
+  # The foundation of the observability stack. Installs Prometheus for 
+  # metrics, Grafana for dashboards, and Alertmanager. 
+  # Must be deployed first to provide necessary CRDs for other tools.
+  - name: kube-prometheus-stack
+    labels:
+      stack: observability
+      component: metrics
+    namespace: monitoring
+    chart: prometheus-community/kube-prometheus-stack
+    version: 82.10.3
+    values:
+      - values/prometheus-stack.yaml
+
+
+  # -----------------------------------------------------------------
+  # LOKI
+  # -----------------------------------------------------------------
+  # Scalable log aggregation system. Handles log storage and 
+  # querying, mirroring the label-based approach used by Prometheus.
+  - name: loki
+    labels:
+      stack: observability
+      component: logging
+    namespace: monitoring
+    chart: grafana-community/loki 
+    version: 6.55.0
+    values:
+      - values/loki.yaml
+    needs:
+      - monitoring/kube-prometheus-stack
+
+
+
+
+  # -----------------------------------------------------------------
+  # TEMPO
+  # -----------------------------------------------------------------
+  # High-scale distributed tracing backend. Designed to ingest 
+  # and store traces efficiently with tight Grafana integration.
+  - name: tempo
+    labels:
+      stack: observability
+      component: tracing
+    namespace: monitoring
+    chart: grafana-community/tempo
+    version: 2.0.0
+    values:
+      - values/tempo.yaml
+    needs:
+      - monitoring/kube-prometheus-stack
+
+  # -----------------------------------------------------------------
+  # GRAFANA ALLOY
+  # -----------------------------------------------------------------
+  # A unified agent that collects metrics, logs, and traces. 
+  # It acts as the local data gatherer on each node to forward 
+  # telemetry to the storage backends.
+  - name: alloy
+    labels:
+      stack: observability
+      component: collector
+    namespace: monitoring
+    chart: grafana/alloy
+    version: 1.7.0
+    values:
+      - values/alloy.yaml
+    needs:
+      - monitoring/kube-prometheus-stack
+      - monitoring/loki
+      - monitoring/tempo
+
+  # -----------------------------------------------------------------
+  # OPENTELEMETRY COLLECTOR
+  # -----------------------------------------------------------------
+  # The central processing hub for the telemetry pipeline. 
+  # It receives OTLP data, applies transformations or filtering, 
+  # and routes it to the final monitoring destinations.
+  - name: otel-collector
+    labels:
+      stack: observability
+      component: collector
+    namespace: monitoring
+    chart: open-telemetry/opentelemetry-collector
+    version: 0.147.0
+    values:
+      - values/otel.yaml
+    needs:
+      - monitoring/kube-prometheus-stack
+      - monitoring/loki
+      - monitoring/tempo
+      - monitoring/alloy
+    

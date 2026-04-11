@@ -1,0 +1,46 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: infrastructure-alerts
+  labels:
+    role: alert-rules
+    team: platform-sre
+spec:
+  groups:
+    - name: node.resources
+      rules:
+        # ---------------------------------------------------------------------
+        # CPU USAGE: Alerts if a node's CPU is nearly maxed out.
+        # ---------------------------------------------------------------------
+        - alert: HostHighCpuUsage
+          expr: (1 - avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m]))) * 100 > 80
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High CPU usage on {{ $labels.instance }}"
+            description: "CPU usage is at {{ $value | printf \"%.2f\" }}%."
+
+        # ---------------------------------------------------------------------
+        # MEMORY USAGE: Alerts if available RAM drops below 15%.
+        # ---------------------------------------------------------------------
+        - alert: HostLowMemory
+          expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 15
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Low memory on {{ $labels.instance }}"
+            description: "Only {{ $value | printf \"%.2f\" }}% RAM is available."
+
+        # ---------------------------------------------------------------------
+        # DISK SPACE: Alerts if the root partition is 90% full.
+        # ---------------------------------------------------------------------
+        - alert: HostDiskFillingUp
+          expr: (1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 > 90
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Disk nearly full on {{ $labels.instance }}"
+            description: "Disk usage is at {{ $value | printf \"%.2f\" }}%."

@@ -1,0 +1,50 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nodejs-app-dev                  # Environment-specific Argo CD application name
+  namespace: argocd                     # Namespace where Argo CD controller resides
+
+  labels:
+    env: development
+    tier: microservice
+    stack: application-delivery
+    app.kubernetes.io/component: nodejs-backend
+    app.kubernetes.io/part-of: dev-environment
+    managed-by: argocd
+
+spec:
+  project: dev-apps-project             # RBAC-scoped project for development workloads
+
+  source:
+    repoURL: https://github.com/SodiqIshola/DevOps-Project
+    targetRevision: main
+    path: k8s/apps/nodejs-app/overlays/development
+
+  destination:
+    server: https://kubernetes.default.svc  # Target cluster API endpoint
+    namespace: dev-namespace                 # Namespace to deploy resources
+
+  syncPolicy:
+    automated:
+      prune: true        # Automatically removes resources no longer defined in Git
+      selfHeal: true     # Reconciles cluster state to match Git if drift occurs
+    syncOptions:
+      - CreateNamespace=true  # Ensures the target namespace exists before deployment
+    
+    retry:
+      limit: 5               # Maximum retry attempts for failed syncs
+      backoff:
+        duration: 5s         # Initial wait before first retry
+        factor: 2            # Exponential increase multiplier between retries
+        maxDuration: 3m      # Upper bound on retry interval
+
+  info:
+    - name: 'Description'
+      value: 'NodeJS microservice instance for the development environment.'
+    - name: 'Delivery'
+      value: 'Deployed via Kustomize overlays under the application-delivery stack.'
+    - name: 'Governance'
+      value: 'Scoped to dev-apps-project with automated drift reconciliation.'
+
+
+

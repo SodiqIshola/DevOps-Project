@@ -1,0 +1,128 @@
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# -------------------------------------------------------------------
+# GLOBAL SETTINGS
+# -------------------------------------------------------------------
+# This namespace is applied to all generated resources.
+namespace: monitoring
+
+
+# This adds 'stack: observability' to all resource metadata, 
+# as well as Deployment selectors and Pod templates.
+labels:
+  - pairs:
+      stack: observability
+    includeSelectors: false  # Safe: Prevents breaking existing Service-to-Pod links
+    includeTemplates: true   # Good: Adds the label to Pods so you can filter logs/metrics
+
+
+# -------------------------------------------------------------------
+# THE WORKFLOW "CHAIN OF COMMAND"
+# -------------------------------------------------------------------
+# (CRD): You install the kube-prometheus-stack with 
+# includeCRDs: true. The cluster now learns the words 
+# "ServiceMonitor" and "PrometheusRule."
+# 
+# (CR): You install Loki/Alloy. They create a ServiceMonitor 
+# and a PrometheusRule. Because the cluster learned those words 
+# in based on CRD, it says "Okay, I'll save these objects."
+# 
+# (Operator): The Prometheus Operator sees the new 
+# ServiceMonitor, reloads its config, and starts pulling metrics from Loki.
+#
+# HELM CHART GENERATORS
+# Kustomize will fetch these charts and run 'helm template' internally.
+# -------------------------------------------------------------------
+helmCharts:
+  - name: kube-prometheus-stack
+    repo: https://prometheus-community.github.io/helm-charts
+    version: 82.10.3
+    releaseName: kube-prometheus-stack
+    valuesFile: values/prometheus-stack.yaml
+    includeCRDs: true # Required so other charts can see the Prometheus CRDs
+
+  - name: loki
+    repo: https://grafana.github.io/helm-charts
+    version: 6.55.0
+    releaseName: loki
+    valuesFile: values/loki.yaml
+
+  - name: tempo
+    repo: https://grafana.github.io/helm-charts
+    version: 1.24.4
+    releaseName: tempo
+    valuesFile: values/tempo.yaml
+
+  - name: alloy
+    repo: https://grafana.github.io/helm-charts
+    version: 1.6.2
+    releaseName: alloy
+    valuesFile: values/alloy.yaml
+
+  - name: opentelemetry-collector
+    repo: https://open-telemetry.github.io/opentelemetry-helm-charts
+    version: 0.147.0
+    releaseName: otel-collector
+    valuesFile: values/otel.yaml
+
+# -------------------------------------------------------------------
+# COMPONENT-SPECIFIC LABELS (PATCHES)
+# -------------------------------------------------------------------
+# Since Helmfile allowed per-release labels, we use patches here to 
+# target resources by their 'app.kubernetes.io/instance' (releaseName).
+patches:
+  # METRICS component
+  - patch: |-
+      apiVersion: v1
+      kind: unused
+      metadata:
+        name: unused
+        labels:
+          component: metrics
+    target:
+      labelSelector: "app.kubernetes.io/instance=kube-prometheus-stack"
+
+  # LOGGING component
+  - patch: |-
+      apiVersion: v1
+      kind: unused
+      metadata:
+        name: unused
+        labels:
+          component: logging
+    target:
+      labelSelector: "app.kubernetes.io/instance=loki"
+
+  # TRACING component
+  - patch: |-
+      apiVersion: v1
+      kind: unused
+      metadata:
+        name: unused
+        labels:
+          component: tracing
+    target:
+      labelSelector: "app.kubernetes.io/instance=tempo"
+
+  # COLLECTOR component (shared by Alloy and OTEL)
+  - patch: |-
+      apiVersion: v1
+      kind: unused
+      metadata:
+        name: unused
+        labels:
+          component: collector
+    target:
+      labelSelector: "app.kubernetes.io/instance in (alloy, otel-collector)"
+
+# -------------------------------------------------------------------
+# IMPORTANT NOTES ON DEPENDENCIES:
+# -------------------------------------------------------------------
+# 1. Kustomize does not support 'needs' (order-based execution). 
+#    It generates one massive YAML file. 
+# 2. When you run 'kubectl apply', if a resource (like a ServiceMonitor) 
+#    is created before its CRD is ready, the first apply might fail.
+# 3. SOLUTION: Use 'kubectl apply --server-side' or run the apply command 
+#    twice to ensure all dependencies are picked up.

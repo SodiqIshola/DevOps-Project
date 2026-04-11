@@ -1,0 +1,13 @@
+
+# -----------------------------------------------------------------------------
+# NAMESPACE (MONITORING-NAMESPACE.YAML)
+# Purpose: Creates a separate "box" for system-wide monitoring tools.
+# Importance: Keeping monitoring (like Prometheus or Grafana) in its own 
+# namespace ensures that if your app crashes or fills up its quota, your 
+# monitoring tools stay online to tell you what went wrong. It's best 
+# practice to keep "Infrastructure" separate from "Applications."
+# -----------------------------------------------------------------------------
+apiVersion: v1                      # Standard API version for core resources
+kind: Namespace                     # Defines this as a "Cluster Folder"
+metadata:
+  name: monitoring                  # The unique name for your observation tools

@@ -1,0 +1,15 @@
+# -----------------------------------------------------------------------------
+# PERSISTENT VOLUME CLAIM (PVC)
+# Requests 1Gi of durable storage using dynamic provisioning.
+# -----------------------------------------------------------------------------
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: node-app-log-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi

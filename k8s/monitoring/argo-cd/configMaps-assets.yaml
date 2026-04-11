@@ -1,0 +1,54 @@
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: configmap-assets
+  namespace: argocd
+  
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+
+  labels:
+    stack: observability
+    component: configurations
+    app.kubernetes.io/component: monitoring-config
+    app.kubernetes.io/part-of: monitoring-stack
+    scope: cross-environment
+    managed-by: argocd
+  
+spec:
+  project: observability-project
+  source:
+    repoURL: https://github.com/SodiqIshola/DevOps-Project
+    targetRevision: main
+    # Path to the folder containing the kustomization.yaml above
+    path: k8s/monitoring/grafana
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring 
+    
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
+
+  info:
+    - name: 'Description'
+      value: 'Static assets for the observability stack (Dashboards, Datasources, and Rules).'
+    - name: 'Contents'
+      value: 'Provisions Grafana dashboards/datasources, Alloy config.alloy, and Loki alerting rules.'
+    - name: 'Requirement'
+      value: 'Sync Wave 1: Must be fully synced before deploying the Alloy and Loki engines.'
+
+
+
+

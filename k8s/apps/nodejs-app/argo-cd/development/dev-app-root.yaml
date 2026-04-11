@@ -1,0 +1,42 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev-app-root
+  namespace: argocd
+
+  labels:
+    env: development
+    tier: orchestration
+    stack: application-delivery
+    app.kubernetes.io/component: root-orchestrator
+    app.kubernetes.io/part-of: dev-environment
+    managed-by: argocd
+
+spec:
+  project: dev-apps-project
+
+  source:
+    repoURL: https://github.com/SodiqIshola/DevOps-Project
+    targetRevision: main
+    path: k8s/apps/nodejs-app/argo-cd/development  # Bootstrap folder for dev environment
+    directory:
+      recurse: true       # Recursively deploy all manifests in the directory
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+
+  syncPolicy:
+    automated:
+      prune: true        # Clean up obsolete resources
+      selfHeal: true     # Reconcile drift automatically
+
+  info:
+    - name: 'Architecture'
+      value: 'Root "App-of-Apps" pattern for the development environment.'
+    - name: 'Automation'
+      value: 'Automatically discovers and manages child microservices in the /development folder.'
+    - name: 'Governance'
+      value: 'Centralized control point for syncing all dev-tier application manifests.'
+
+

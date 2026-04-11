@@ -1,0 +1,16 @@
+# -----------------------------------------------------------------------------
+# RESOURCE QUOTA
+# Enforces namespace-level resource limits to prevent overconsumption.
+# -----------------------------------------------------------------------------
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: app-namespace-quota
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: "2Gi"
+    limits.cpu: "4"
+    limits.memory: "4Gi"
+    pods: "10"
+    persistentvolumeclaims: "5"

@@ -1,0 +1,4 @@
+resources:
+  - dev-namespace.yaml
+  - monitoring-namespace.yaml
+  - prod-namespace.yaml

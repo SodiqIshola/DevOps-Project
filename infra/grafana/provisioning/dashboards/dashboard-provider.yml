@@ -1,0 +1,22 @@
+# provisioning/dashboards/dashboard-provider.yml
+# Grafana dashboard provisioning configuration
+apiVersion: 1
+
+providers:
+  # Unique name for this provider (can be anything)
+  - name: 'Standard Dashboards'
+    # The organization ID (1 is the default for a fresh install)
+    orgId: 1
+    # The dashboard folder in the Grafana UI where these will appear
+    folder: 'Services'
+    # Choose 'dashboards' to load files from a local directory
+    type: file
+    # How often Grafana scans the folder for NEW or CHANGED JSON files (hot-reload)
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 10 
+    options:
+      # CRITICAL: This must match the internal path used in your docker-compose.yml
+      # In our setup, this is: - ./dashboards:/var/lib/grafana/dashboards:ro
+      path: /var/lib/grafana/dashboards
+

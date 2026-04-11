@@ -1,0 +1,228 @@
+# https://github.com/grafana/alloy/blob/main/operations/helm/charts/alloy/values.yaml
+
+# =============================================================================
+# GLOBAL POD SECURITY (HOST-LEVEL ACCESS)
+# Alloy requires elevated privileges to read host-level telemetry sources
+# (/proc, /sys, rootfs). This is expected for node-level observability agents.
+# =============================================================================
+
+global:
+  podSecurityContext:
+    fsGroup: 0
+    runAsUser: 0
+    runAsGroup: 0
+    runAsNonRoot: false
+
+# =============================================================================
+# ALLOY CORE CONFIGURATION
+# Defines how Alloy is deployed, where it gets its pipeline config from,
+# and how it interacts with the host and cluster.
+# =============================================================================
+alloy:
+  enabled: true
+
+  # --- CONFIG SOURCE ---
+  # This section controls how the ConfigMap is MOUNTED into the pod
+  configMap:
+    create: false
+    name: alloy-config
+    key: config.alloy
+  
+  # This tells Alloy exactly where to find your custom config
+  config:
+    existingConfigMap: alloy-config
+    configMapKey: config.alloy
+
+  # --- STORAGE  ---
+  # Configures the persistent storage path for the Write-Ahead Log (WAL) 
+  extraArgs:
+    - --storage.path=/var/lib/alloy/data
+
+  # --- OTLP INGESTION ENDPOINTS ---
+  # Exposes standard OpenTelemetry ports (gRPC and HTTP) to enable 
+  # Alloy to ingest traces, metrics, and logs from external workloads.
+  extraPorts:
+    - name: "otlp-grpc"
+      port: 4317
+      targetPort: 4317
+      protocol: "TCP"
+    - name: "otlp-http"
+      port: 4318
+      targetPort: 4318
+      protocol: "TCP"
+
+  # --- HOST ACCESS ---
+  # Required mounts for node-level metrics and logs collection.
+  mounts:
+    varlog: true
+    dockercontainers: false
+    extra:
+      - name: udev
+        mountPath: /run/udev/data
+        readOnly: true
+      - name: rootfs
+        mountPath: /host/rootfs
+        readOnly: true
+      - name: proc
+        mountPath: /host/proc
+        readOnly: true
+      - name: sys
+        mountPath: /host/sys
+        readOnly: true
+
+  # --- SECURITY CONTEXT ---
+  # Must align with global context for host access.
+  securityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    runAsNonRoot: false
+    privileged: true
+
+  # --- RESOURCE GUARDS ---
+  # Prevent Alloy from over-consuming node resources under load.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # ---------------------------------------------------------------------------
+  # HEALTH PROBES
+  # ---------------------------------------------------------------------------
+  # Ensures Alloy is stable and prevents bad pods from serving traffic
+  startupProbe:
+    httpGet:
+      path: /-/ready
+      port: 12345
+    failureThreshold: 15
+    periodSeconds: 10
+
+  livenessProbe:
+    httpGet:
+      path: /-/healthy
+      port: 12345
+    periodSeconds: 20
+
+  readinessProbe:
+    httpGet:
+      path: /-/ready
+      port: 12345
+    periodSeconds: 10
+
+
+# =============================================================================
+# DEPLOYMENT MODEL (DAEMONSET)
+# One Alloy pod per node ensures full node coverage for logs + metrics.
+# =============================================================================
+controller:
+  type: daemonset
+
+  # --- LOCAL STORAGE ---
+  # Node-local PVC for buffering and temporary state.
+  storage:
+    enabled: true
+    size: 2Gi
+    storageClass: local-path
+
+  # --- HOST PATH MOUNTS ---
+  # Direct access to host filesystem required for exporters.
+  volumes:
+    extra:
+      - name: udev
+        hostPath:
+          path: /run/udev/data
+      - name: rootfs
+        hostPath:
+          path: /
+      - name: proc
+        hostPath:
+          path: /proc
+      - name: sys
+        hostPath:
+          path: /sys
+
+
+
+# =============================================================================
+# RBAC (CLUSTER DISCOVERY)
+# Required for Kubernetes service discovery (pods, nodes, endpoints, etc.).
+# Read-only access only.
+# =============================================================================
+rbac:
+  create: true
+  extraRules:
+    - apiGroups: [""]
+      resources: ["pods", "namespaces", "nodes", "services", "endpoints"]
+      verbs: ["get", "list", "watch"]
+
+
+# =============================================================================
+# SERVICE (OTLP + INTERNAL ENDPOINTS)
+# Exposes Alloy for:
+# - OTLP ingestion (4317 gRPC, 4318 HTTP)
+# - Internal metrics/debug UI (12345)
+# =============================================================================
+
+service:
+  enabled: true
+  type: ClusterIP
+  ports:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318
+    - name: metrics
+      port: 12345
+      targetPort: 12345
+
+
+# =============================================================================
+# SERVICE ACCOUNT
+# Provides identity for API access (used by discovery components).
+# =============================================================================
+serviceAccount:
+  create: true
+  automountServiceAccountToken: true
+
+# =============================================================================
+# CONFIG RELOADER
+# Watches ConfigMap changes and reloads Alloy without manual restarts.
+# =============================================================================
+configReloader:
+  enabled: true
+
+
+# =============================================================================
+# INGRESS (DEBUG / UI ACCESS)
+# exposes Alloy UI for debugging and pipeline inspection. Not typically enabled in production unless secured.
+# =============================================================================
+ingress:
+  enabled: true
+  faroPort: 12345
+  ingressClassName: traefik
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+  hosts:
+    - alloy.monitoring.internal  # URL for accessing Alloy UI
+  pathType: Prefix               # Standard path matching for sub-pages
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

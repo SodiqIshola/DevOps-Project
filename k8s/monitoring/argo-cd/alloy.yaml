@@ -1,0 +1,66 @@
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: alloy
+  namespace: argocd
+
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+
+  labels:
+    stack: observability
+    component: collector
+    app.kubernetes.io/component: telemetry-collector
+    app.kubernetes.io/part-of: monitoring-stack
+    scope: cross-environment
+    managed-by: argocd
+
+spec:
+
+  project: observability-project
+  
+  sources:
+    # Source 1: Pulls the official Helm chart from Grafana's repository
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: alloy
+      targetRevision: 1.7.0
+      helm:
+        # Refers to the '$config' alias defined in the second source below
+        valueFiles:
+          - $config/k8s/monitoring/helm/values/alloy.yaml
+    
+    # Source 2: Pulls your custom configuration/values from your Git repository
+    - repoURL: https://github.com/SodiqIshola/DevOps-Project
+      targetRevision: main
+      ref: config 
+
+  destination:
+    # Target cluster and namespace for the Alloy pods
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      # Ensures the 'monitoring' namespace exists before deployment
+      - CreateNamespace=true
+    retry:
+      # Retries deployment if it fails due to transient network or API errors
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
+
+  info:
+    - name: 'Description'
+      value: 'Central Telemetry Gateway: Aggregates logs, metrics, and OTel traces.'
+    - name: 'Data-Pipeline'
+      value: 'Routes logs to Loki, metrics to Prometheus, and handshakes OTel traces to Tempo.'
+    - name: 'Processing'
+      value: 'Generates span metrics from incoming OTel traces for enhanced dashboarding.'
+
+

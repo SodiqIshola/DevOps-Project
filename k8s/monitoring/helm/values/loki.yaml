@@ -1,0 +1,218 @@
+# yaml-language-server: $schema=none
+# https://github.com/grafana/loki/blob/main/production/helm/loki/values.yaml
+
+# =============================================================================
+# DEPLOYMENT MODE
+# -----------------------------------------------------------------------------
+# SingleBinary is chosen for simplicity:
+# - No HA
+# - No object storage dependency
+# - Suitable for dev / small workloads
+# =============================================================================
+deploymentMode: SingleBinary
+
+singleBinary:
+  replicas: 1  # Required for filesystem-backed storage
+
+  # --- PERSISTENCE ---
+  # Ensures logs survive restarts (local disk only).
+  persistence:
+    enabled: true
+    accessModes: ["ReadWriteOnce"]
+    size: 2Gi
+    storageClass: local-path
+
+  # --- RESOURCE LIMITS ---
+  # Protects node from Loki spikes during ingestion/query.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# =============================================================================
+# LOKI CORE SETTINGS
+# Defines ingestion, storage, indexing, and query behavior.
+# =============================================================================
+loki:
+  enabled: true
+  auth_enabled: false  # Single-tenant setup
+
+  ui:
+    enabled: true
+
+  # --- STORAGE BACKEND ---
+  # Filesystem mode (no object storage).
+  # bucketNames are required by Helm but are logical only.
+  storage:
+    type: filesystem
+    bucketNames:
+      chunks: chunks
+      ruler: ruler
+      admin: admin
+
+  # =============================================================================
+  # HEALTH PROBES
+  # /ready is used for all probes since it reflects readiness + liveness.
+  # =============================================================================
+  startupProbe:
+    httpGet:
+      path: /ready
+      port: http-metrics
+    failureThreshold: 30
+    periodSeconds: 10
+
+  livenessProbe:
+    httpGet:
+      path: /ready
+      port: http-metrics
+    periodSeconds: 15
+
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: http-metrics
+    periodSeconds: 10
+
+
+  # =============================================================================
+  # INTERNAL CONFIG (STRUCTURED)
+  # Uses Helm-safe structuredConfig instead of raw YAML for validation.
+  # =============================================================================
+  structuredConfig:
+
+    server:
+      http_listen_port: 3100
+
+    # --- SCHEMA ---
+    # TSDB-based indexing (modern Loki storage model).
+    schema_config:
+      configs:
+        - from: 2024-01-01
+          store: tsdb
+          object_store: filesystem
+          schema: v13
+          index:
+            prefix: loki_index_
+            period: 24h
+
+    # --- STORAGE PATHS ---
+    # Aligns with mounted PVC directories.
+    storage_config:
+      filesystem:
+        directory: /var/loki/chunks
+
+      tsdb_shipper:
+        active_index_directory: /var/loki/index
+        cache_location: /var/loki/index_cache
+
+    # --- INGESTER ---
+    # WAL ensures durability during crashes/restarts.
+    ingester:
+      wal:
+        enabled: true
+        dir: /var/loki/wal
+
+    # --- QUERY PERFORMANCE ---
+    # Embedded cache improves query latency for repeated queries.
+    query_range:
+      results_cache:
+        cache:
+          embedded_cache:
+            enabled: true
+
+    # --- RETENTION ---
+    # 31-day retention; no rejection of old samples.
+    limits_config:
+      retention_period: 744h   
+      reject_old_samples: false  
+
+    # --- COMPACTOR ---
+    # Handles retention enforcement and data cleanup.
+    compactor:
+      working_directory: /var/loki/retention
+      delete_request_store: filesystem
+
+  # --- CLUSTER SETTINGS ---
+  # No replication in single-node setup.
+  commonConfig:
+    replication_factor: 1
+
+
+# =============================================================================
+# DISABLED COMPONENTS (DISTRIBUTED MODE)
+# Explicitly disabled to avoid accidental resource usage.
+# =============================================================================
+read:
+  replicas: 0
+write:
+  replicas: 0
+backend:
+  replicas: 0
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+lokiCanary:
+  enabled: false
+test:
+  enabled: false
+
+
+# =============================================================================
+# GATEWAY (NGINX)
+# Entry point for ingestion (/push) and queries.
+# Required even in single-binary mode.
+# =============================================================================
+gateway:
+  enabled: true
+
+  # --- HEALTH CHECKS ---
+  # NGINX does not expose /ready, so "/" is used instead.
+  startupProbe:
+    httpGet:
+      path: /
+      port: http-metrics
+    failureThreshold: 15
+    periodSeconds: 10
+
+  livenessProbe:
+    httpGet:
+      path: /
+      port: http-metrics
+    periodSeconds: 15
+
+  readinessProbe:
+    httpGet:
+      path: /
+      port: http-metrics
+    periodSeconds: 10
+
+  # --- INGRESS ---
+  # Exposes Loki externally (typically for Grafana or testing).
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    annotations:
+      kubernetes.io/ingress.class: traefik
+      traefik.ingress.kubernetes.io/router.entrypoints: web
+    hosts:
+      - host: loki.local
+        paths:
+          - path: /
+            pathType: Prefix
+
+
+# =============================================================================
+# ACCESS CONTROL
+# Minimal RBAC required for Kubernetes integration.
+# =============================================================================
+serviceAccount:
+  create: true
+
+rbac:
+  create: true
+
+  

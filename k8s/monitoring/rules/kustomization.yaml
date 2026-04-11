@@ -1,0 +1,3 @@
+resources:
+  - application-alerts.yaml
+  - infrastructure-alerts.yaml

@@ -1,0 +1,33 @@
+resources:
+  - ../../base
+
+# Deploys all resources into this specific namespace for environment isolation
+namespace: dev-namespace
+
+# Transforms metadata.name of all resources by adding a '-dev' suffix to ensure unique naming within the cluster.
+nameSuffix: -dev
+
+# Global labels injected into metadata and spec selectors for environment isolation and Grafana observability.
+# as well as Deployment selectors and Pod templates.
+labels:
+  - pairs:
+      environment: development
+    includeSelectors: false # Prevents breaking the Base's functional logic
+    includeTemplates: true  # Ensures Pods are labeled for filtering/logs
+
+
+# Environment-specific overrides for the development 
+patches:
+  - path: deployment-patch.yaml
+  - path: hpa-patch.yaml
+  - path: ingress-patch.yaml 
+  - path: service-patch.yaml 
+  - path: servicemonitor-patch.yaml
+    # Explicitly matches the ServiceMonitor by kind and name for precise patching
+    target:
+      kind: ServiceMonitor
+      name: node-app-monitor
+
+
+
+

@@ -1,0 +1,55 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  # Production application definition managed by Argo CD
+  name: nodejs-app-prod
+  namespace: argocd 
+
+  labels:
+    # Environment and Tier
+    env: production
+    tier: microservice
+    # Standardized Stack Labels
+    stack: application-delivery
+    app.kubernetes.io/component: nodejs-backend
+    app.kubernetes.io/part-of: prod-environment
+    managed-by: argocd
+
+spec:
+  # Project enforces RBAC and environment-level boundaries
+  project: prod-apps-project
+  
+  source:
+    repoURL: https://github.com/SodiqIshola/DevOps-Project
+    targetRevision: main
+    path: k8s/apps/nodejs-app/overlays/production 
+  
+  destination:
+    # Target cluster and namespace for deployment
+    server: https://kubernetes.default.svc
+    namespace: prod-namespace 
+
+  syncPolicy:
+
+    syncOptions:
+      - CreateNamespace=true
+      # Validates manifests before applying changes
+      - Validate=true
+      # Applies pruning at the end of the sync process
+      - PruneLast=true
+
+    # Retry configuration for transient failures
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s 
+        factor: 2
+        maxDuration: 5m
+
+  info:
+    - name: 'Description'
+      value: 'Production instance of the NodeJS microservice.'
+    - name: 'Delivery'
+      value: 'Manual promotion model using production-specific Kustomize overlays.'
+    - name: 'Governance'
+      value: 'Production-grade sync options enabled with manifest validation and safety-first pruning.'
