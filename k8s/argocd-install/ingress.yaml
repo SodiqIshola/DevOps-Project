@@ -11,6 +11,7 @@ metadata:
     # Change HTTPS to HTTP if using --insecure
     traefik.ingress.kubernetes.io/backend-protocol: "HTTP"
 spec:
+  ingressClassName: traefik
   rules:
     - host: argocd-local
       http:
