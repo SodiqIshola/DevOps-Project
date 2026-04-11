@@ -19,7 +19,7 @@ First, provision the Argo CD controller into your cluster. -->
       kubectl create namespace argocd
 
     # Install Argo CD
-      kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+      kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/v3.3.6/manifests/install.yaml
 
     # Wait for the rollout to finish
       kubectl wait --for=condition=Ready pods --all -n argocd --timeout=300s
@@ -32,7 +32,8 @@ First, provision the Argo CD controller into your cluster. -->
       kubectl create namespace argocd
 
     # Install Argo CD
-      kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+      kubectl apply --server-side --force-conflicts -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/v3.3.6/manifests/install.yaml
+
 
     # Deploy the bootstrap application
       kubectl apply -f k8s/argocd-install/argocd-app.yaml

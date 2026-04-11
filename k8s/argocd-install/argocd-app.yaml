@@ -11,7 +11,7 @@ spec:
   source:
     repoURL: https://github.com/SodiqIshola/DevOps-Project
     targetRevision: main
-    path: k8s/argocd-install/argocd
+    path: k8s/argocd-install
 
   destination:
     server: https://kubernetes.default.svc  # Target cluster API endpoint
