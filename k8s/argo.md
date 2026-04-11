@@ -34,6 +34,14 @@ First, provision the Argo CD controller into your cluster. -->
     # Install Argo CD
       kubectl apply --server-side --force-conflicts -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/v3.3.6/manifests/install.yaml
 
+    <!-- Enable Insecure Mode via ConfigMap:
+    Apply this patch to the command parameters. This tells the Argo CD server to disable its internal TLS. -->
+      kubectl patch cm argocd-cmd-params-cm -n argocd -p '{"data": {"server.insecure": "true"}}'
+
+
+    <!-- Restart the server: For the changes to take effect, the argocd-server pod needs to restart: -->
+      kubectl rollout restart deployment argocd-server -n argocd
+
 
     # Deploy the bootstrap application
       kubectl apply -f k8s/argocd-install/argocd-app.yaml
