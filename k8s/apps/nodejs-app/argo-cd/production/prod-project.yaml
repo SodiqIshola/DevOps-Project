@@ -20,6 +20,8 @@ spec:
   destinations:
     - namespace: prod-namespace
       server: https://kubernetes.default.svc
+    - namespace: argocd # Add this line
+      server: https://kubernetes.default.svc
   
   # Approved source repositories
   sourceRepos:

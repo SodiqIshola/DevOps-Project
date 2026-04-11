@@ -22,6 +22,8 @@ spec:
   destinations:
     - namespace: dev-namespace
       server: https://kubernetes.default.svc  # Restrict deployments to development namespace
+    - namespace: argocd 
+      server: https://kubernetes.default.svc
 
   sourceRepos:
     - "https://github.com/SodiqIshola/DevOps-Project"                   # Limit Git sources for this project

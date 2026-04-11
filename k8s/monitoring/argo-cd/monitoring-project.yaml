@@ -15,9 +15,13 @@ metadata:
 spec:
   description: "RBAC boundary for observability stack deployments (Prometheus, Loki, Tempo, OpenTelemetry, Alloy) into the monitoring namespace"
   
-  # Deployment scope restricted to the monitoring namespace within the local cluster
+
+  # Note: Root and Child Application resources live in the 'argocd' namespace. 
+  # Both 'argocd' (for Apps) and 'monitoring' (for resources) must be allowed destinations.
   destinations:
     - namespace: monitoring
+      server: https://kubernetes.default.svc
+    - namespace: argocd 
       server: https://kubernetes.default.svc
   
   # Approved source repositories for Helm charts and internal manifests
