@@ -25,8 +25,7 @@ spec:
   
   destination:
     server: https://kubernetes.default.svc
-    # Leave empty because namespace YAML will create its own namespaces
-    namespace: "" 
+    namespace: argocd
 
   syncPolicy:
     automated:
