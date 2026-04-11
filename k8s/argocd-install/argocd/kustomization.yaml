@@ -1,0 +1,8 @@
+resources:
+  - ingress.yaml
+  - namespace.yaml
+  - bootstrap/install.yaml
+
+commonAnnotations:
+  argocd.argoproj.io/sync-wave: "0"
+  

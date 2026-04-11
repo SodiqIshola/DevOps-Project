@@ -16,20 +16,26 @@ First, provision the Argo CD controller into your cluster. -->
   This is the "classic" way to get the controller running. Using --server-side is a pro move—it avoids those annoying "metadata too long" errors with Kubernetes CRDs. -->
 
     # Create the namespace
-    kubectl create namespace argocd
+      kubectl create namespace argocd
 
     # Install Argo CD
-    kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+      kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 
     # Wait for the rollout to finish
-    kubectl wait --for=condition=Ready pods --all -n argocd --timeout=300s
+      kubectl wait --for=condition=Ready pods --all -n argocd --timeout=300s
 
   <!-- Option 2: The "App-of-Apps" Bootstrap 
   Using argocd-app.yaml is the GitOps way. Instead of manually managing manifests, you tell Argo CD to manage itself. 
   Note: For this to work, your argocd-app.yaml usually needs to point to a Git repo where the Argo CD Helm chart or manifests live.  -->
 
+    # Create the namespace
+      kubectl create namespace argocd
+
+    # Install Argo CD
+      kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
     # Deploy the bootstrap application
-    kubectl apply -f argocd-app.yaml
+      kubectl apply -f k8s/argocd-install/argocd-app.yaml
 
 
 <!-- 2. Retrieve Initial Credentials
