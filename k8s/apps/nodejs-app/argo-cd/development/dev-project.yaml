@@ -34,13 +34,7 @@ spec:
     - group: ''   # Explicitly deny access to sensitive cluster-level resources
       kind: 'none'
 
-  info:
-    - name: 'Governance'
-      value: 'Sandboxed RBAC boundary for development-tier microservices.'
-    - name: 'Network-Scope'
-      value: 'Strictly restricted to the dev-namespace on the local cluster.'
-    - name: 'Security-Policy'
-      value: 'Implicitly denies all cluster-scoped resource modifications.'
+
 
 
 
