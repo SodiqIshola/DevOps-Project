@@ -1,0 +1,2 @@
+curl -o bootstrap/install.yaml \
+https://raw.githubusercontent.com/argoproj/argo-cd/v3.3.6/manifests/install.yaml
