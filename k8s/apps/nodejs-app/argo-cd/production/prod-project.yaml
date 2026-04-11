@@ -35,10 +35,3 @@ spec:
     - group: ''
       kind: 'none'
 
-  info:
-    - name: 'Governance'
-      value: 'Production-tier security boundary with strict namespace isolation.'
-    - name: 'Security-Postures'
-      value: 'Zero-trust for cluster-level resources; restricted to namespaced objects only.'
-    - name: 'Audit-Scope'
-      value: 'Enforces GitOps source-of-truth from the authorized production repository.'

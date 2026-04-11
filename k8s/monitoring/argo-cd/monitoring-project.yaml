@@ -33,12 +33,4 @@ spec:
     - group: '*'
       kind: '*'
 
-  info:
-    - name: 'Governance'
-      value: 'Restricts observability deployments to the monitoring namespace.'
-    - name: 'Trust-Model'
-      value: 'Allows cluster-scoped resources (CRDs/ClusterRoles) required by monitoring operators.'
-    - name: 'Sources'
-      value: 'Whitelists official Grafana, Prometheus, and OTel Helm registries plus internal Git.'
-
 

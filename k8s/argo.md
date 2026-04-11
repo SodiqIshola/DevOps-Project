@@ -34,14 +34,6 @@ First, provision the Argo CD controller into your cluster. -->
     # Install Argo CD
       kubectl apply --server-side --force-conflicts -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/v3.3.6/manifests/install.yaml
 
-    <!-- Enable Insecure Mode via ConfigMap:
-    Apply this patch to the command parameters. This tells the Argo CD server to disable its internal TLS. -->
-      kubectl patch cm argocd-cmd-params-cm -n argocd -p '{"data": {"server.insecure": "true"}}'
-
-
-    <!-- Restart the server: For the changes to take effect, the argocd-server pod needs to restart: -->
-      kubectl rollout restart deployment argocd-server -n argocd
-
 
     # Deploy the bootstrap application
       kubectl apply -f k8s/argocd-install/argocd-app.yaml
@@ -53,7 +45,12 @@ Argo CD generates a temporary admin password during the first installation.  -->
   # Extract the base64-encoded password from the secret and decode it
     kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
 
-    kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+    for /f "tokens=*" %i in ('kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath^="{.data.password}"') do echo %i > pass.txt & certutil -decode pass.txt pass.out & type pass.out & del pass.txt pass.out
+
+
+    $password = kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}"[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($password))
+
+
 
 
 <!-- Bootstrap the Observability Stack (Root App)
@@ -69,10 +66,21 @@ Now, apply your Root Application and AppProject. This single command triggers th
 <!-- Access the Dashboard
 Since you mapped port 8080 in your k3d command, you can use port-forwarding to reach the UI from your local browser. -->
 
-  # Forward traffic from localhost:8080 to the Argo CD server
-    kubectl port-forward svc/argocd-server -n argocd 8080:443
+    # Forward traffic from localhost:8080 to the Argo CD server
+      kubectl port-forward svc/argocd-server -n argocd 8080:443
 
-NOTE: You can now log in at https://localhost:8080 using the username admin and the password retrieved in Step 2.
+    NOTE: You can now log in at https://localhost:8080 using the username admin and the password retrieved in Step 2.
+
+  NOTE: When ingress is enabled
+  <!-- Enable Insecure Mode via ConfigMap:
+    Apply this patch to the command parameters. This tells the Argo CD server to disable its internal TLS to avoid double tls and protocol mismatches. Let ingress handle https and keep backend traffic to simple http. -->
+
+      kubectl patch cm argocd-cmd-params-cm -n argocd -p "{\"data\": {\"server.insecure\": \"true\"}}"
+
+    
+    <!-- Restart the server: For the changes to take effect, the argocd-server pod needs to restart: -->
+      kubectl rollout restart deployment argocd-server -n argocd
+
 
 
 
