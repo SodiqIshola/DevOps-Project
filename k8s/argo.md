@@ -57,10 +57,10 @@ Argo CD generates a temporary admin password during the first installation.  -->
 Now, apply your Root Application and AppProject. This single command triggers the deployment of the entire monitoring suite (Namespaces, Prometheus, Loki, Tempo, and Alloy) based on your Git configurations.  -->
 
   # Apply the AppProject first to define the security boundary
-    kubectl apply -f monitoring-project.yaml
+    kubectl apply -f k8s/monitoring/argo-cd/monitoring-project.yaml
 
   # Deploy the Root Application to begin the automated sync of the stack
-    kubectl apply -f monitoring-stack-root.yaml
+    kubectl apply -f k8s/monitoring/argo-cd/monitoring-stack-root.yaml
 
 
 <!-- Access the Dashboard
@@ -115,6 +115,10 @@ Run this from your terminal in the directory where your file is located: -->
 
   # Apply the Root manifest to the cluster
   kubectl apply -f k8s/infra/monitoring/bootstrap/root.yaml
+
+
+
+
 
 
 <!-- 2. Verify the Deployment
@@ -178,3 +182,37 @@ If you have the argocd CLI installed, you can watch the sync happen in real-time
 bash -->
   # Watch the sync progress of the root and all its children
   argocd app get observability-stack-root --watch
+
+
+
+
+
+
+
+1. Check with Argo CD CLI 
+The CLI provides a high-level view of whether Argo CD even "sees" your application and if it has attempted a sync.
+List all applications: Confirm your app is actually registered.
+bash
+argocd app list
+Use code with caution.
+
+Look for the STATUS (e.g., OutOfSync, Synced) and HEALTH (e.g., Missing, Healthy).
+Get detailed status: See why it might be failing (e.g., "Permission denied" or "Git repo not found").
+bash
+argocd app get <your-app-name>
+Use code with caution.
+
+This command shows errors in the Conditions section at the bottom. 
+Argo CD
+Argo CD
+ +3
+2. Check with kubectl (No CLI needed) 
+Since Argo CD applications are just Kubernetes Custom Resources (CRDs), you can inspect them directly:
+Check the Application resource:
+bash
+kubectl get application -n argocd
+Use code with caution.
+
+Check for errors in the status:
+bash
+kubectl describe application <your-app-name> -n argocd
