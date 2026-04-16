@@ -27,13 +27,14 @@ module "alb_controller" {
 module "argocd" {
   source = "../../modules/install-argocd"
 
-  cluster_name      = data.terraform_remote_state.infra.outputs.cluster_name
-  vpc_id            = data.terraform_remote_state.infra.outputs.vpc_id
-  namespace         = "argocd"
-  allowed_cidr      = var.allowed_cidr
-  oidc_provider_arn = data.terraform_remote_state.infra.outputs.oidc_provider_arn
-  oidc_provider_url = data.terraform_remote_state.infra.outputs.oidc_provider_url
-  waf_arn           = [data.terraform_remote_state.infra.outputs.waf_arn]
+  cluster_name              = data.terraform_remote_state.infra.outputs.cluster_name
+  vpc_id                    = data.terraform_remote_state.infra.outputs.vpc_id
+  namespace                 = "argocd"
+  allowed_cidr              = var.allowed_cidr
+  oidc_provider_arn         = data.terraform_remote_state.infra.outputs.oidc_provider_arn
+  oidc_provider_url         = data.terraform_remote_state.infra.outputs.oidc_provider_url
+  waf_arn                   = data.terraform_remote_state.infra.outputs.waf_arn
+  eks_nodes_security_group  = data.terraform_remote_state.infra.outputs.eks_cluster_security_group_id
 
   depends_on = [module.alb_controller]
 }

@@ -18,7 +18,7 @@ variable "allowed_cidr" {
 
 variable "waf_arn" {
   description = "Restrict access to ArgoCD (if LoadBalancer)"
-  type        = list(string)
+  type        = string
 }
 
 variable "vpc_id" {
@@ -35,3 +35,10 @@ variable "oidc_provider_url" {
   description = "The URL of the EKS OIDC provider (without https:// prefix)"
   type        = string
 }
+
+
+variable "eks_nodes_security_group" {
+  description = "The URL of the EKS OIDC provider (without https:// prefix)"
+  type        = string
+}
+
