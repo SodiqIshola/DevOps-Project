@@ -1,0 +1,46 @@
+
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: dev-apps-project
+  namespace: argocd
+
+  labels:
+    env: development
+    tier: platform
+    stack: application-delivery
+    component: rbac-project
+    app.kubernetes.io/component: administrative-policy
+    app.kubernetes.io/part-of: dev-environment
+    managed-by: argocd
+
+
+spec:
+
+  description: "Standard development project providing full CRUD access to all namespace-scoped resources within 'dev-ns', while strictly prohibiting the creation or modification of any cluster-level resources."
+
+  destinations:
+    - namespace: dev-namespace
+      server: https://kubernetes.default.svc  # Restrict deployments to development namespace
+    - namespace: argocd 
+      server: https://kubernetes.default.svc
+
+  sourceRepos:
+    - "https://github.com/SodiqIshola/DevOps-Project"                   # Limit Git sources for this project
+
+  namespaceResourceWhitelist:
+    - group: '*'  # Allow standard namespace-scoped resources
+      kind: '*'
+
+  clusterResourceWhitelist:
+    - group: ''   # Explicitly deny access to sensitive cluster-level resources
+      kind: 'none'
+
+
+
+
+
+
+  
+
+

@@ -19,6 +19,27 @@ app-logs/
 .terraform/
 terraform/.terraform/
 
+terraform/aws-ecs/environments/development/.terraform
+terraform/aws-ecs/environments/development/.terraform.lock.hcl
+terraform/aws-ecs/environments/development/terraform.tfstate
+terraform/aws-ecs/environments/development/terraform.tfstate.backup
+
+
+terraform/aws-eks/.terraform
+terraform/aws-eks/.terraform.lock.hcl
+
+terraform/aws-eks/environments/eks-infra/.terraform
+terraform/aws-eks/environments/eks-infra/.terraform.lock.hcl
+terraform/aws-eks/environments/eks-infra/terraform.tfstate
+terraform/aws-eks/environments/eks-infra/terraform.tfstate.backup
+
+
+terraform/aws-eks/environments/platform/.terraform
+terraform/aws-eks/environments/platform/.terraform.lock.hcl
+terraform/aws-eks/environments/platform/terraform.tfstate
+terraform/aws-eks/environments/platform/terraform.tfstate.backup
+
+
 # 2. THE SENSITIVE ONES: State files contain your infrastructure's "DNA" and secrets.
 *.tfstate
 *.tfstate.*

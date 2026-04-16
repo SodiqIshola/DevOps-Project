@@ -1,0 +1,36 @@
+prometheus:
+  ingress:
+    enabled: true
+    ingressClassName: alb
+    # Leave hosts empty/null to accept the default ALB DNS name
+    hosts: []
+    paths: 
+      - /prometheus/*
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/group.name: platform
+      alb.ingress.kubernetes.io/wafv2-acl-arn: "${waf_arn}"
+      # Rewrite the path so Prometheus doesn't get confused
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+
+grafana:
+  ingress:
+    enabled: true
+    ingressClassName: alb
+    hosts: []
+    path: /grafana/*
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/group.name: platform
+      alb.ingress.kubernetes.io/wafv2-acl-arn: "${waf_arn}"
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+
+  # IMPORTANT: Grafana needs to know it lives at /grafana
+  grafana.ini:
+    server:
+      root_url: "%(protocol)s://%(domain)s:%(http_port)s/grafana/"
+      serve_from_sub_path: true
+    auth.anonymous:
+      enabled: false

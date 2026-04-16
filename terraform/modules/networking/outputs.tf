@@ -20,16 +20,3 @@ output "private_subnet_ids" {
 }
 
 
-# The Security Group ID for the ALB (to allow port 80)
-output "alb_sg_id" {
-  description = "Security group ID for the ALB"
-  value       = aws_security_group.alb_sg.id
-}
-
-
-# The Security Group ID for the Tasks (to allow port 3000)
-output "ecs_tasks_sg_id" {
-  description = "Security group ID for the ECS tasks"
-  value       = aws_security_group.ecs_tasks_sg.id
-}
-

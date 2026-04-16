@@ -1,0 +1,163 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: nodejs-app-appset
+  namespace: argocd
+
+spec:
+  # ============================================================================
+  # ENABLE GO TEMPLATE
+  # ============================================================================
+  # Required for:
+  # - Conditional logic (if/else)
+  # - Dynamic mapping (env → namespace/project)
+  # ============================================================================
+  goTemplate: true
+
+  # ============================================================================
+  # GENERATORS
+  # ============================================================================
+  # Two generators for controlled behavior:
+  #
+  # 1. development → auto-sync (fast feedback, dev-friendly)
+  # 2. production  → manual sync (controlled releases)
+  #
+  # This separation avoids risky deployments in production
+  # ============================================================================
+  generators:
+
+    # --------------------------------------------------------------------------
+    # GENERATOR 1: DEVELOPMENT
+    # --------------------------------------------------------------------------
+    - git:
+        repoURL: https://github.com/SodiqIshola/DevOps-Project
+        revision: main
+        directories:
+          - path: k8s/apps/nodejs-app/overlays/development
+
+    # --------------------------------------------------------------------------
+    # GENERATOR 2: PRODUCTION + OTHERS
+    # --------------------------------------------------------------------------
+    - git:
+        repoURL: https://github.com/SodiqIshola/DevOps-Project
+        revision: main
+        directories:
+          - path: k8s/apps/nodejs-app/overlays/*
+        exclude:
+          - k8s/apps/nodejs-app/overlays/development
+
+  # ============================================================================
+  # TEMPLATE
+  # ============================================================================
+  template:
+    metadata:
+      # App name per environment
+      # Example:
+      # - nodejs-app-development
+      # - nodejs-app-production
+      name: nodejs-app-{{path.basename}}
+
+      labels:
+        env: "{{path.basename}}"
+        app.kubernetes.io/name: nodejs-app
+        managed-by: argocd
+
+    spec:
+      # ------------------------------------------------------------------------
+      # PROJECT MAPPING (RBAC CONTROL)
+      # ------------------------------------------------------------------------
+      # Each environment is mapped to a different ArgoCD AppProject
+      #
+      # WHY:
+      # - dev project → relaxed permissions
+      # - prod project → strict RBAC, approvals, restrictions
+      #
+      # This is critical for secure GitOps in real environments
+      # ------------------------------------------------------------------------
+      project: >-
+        {{- if eq .path.basename "development" -}}
+        dev-apps-project
+        {{- else if eq .path.basename "production" -}}
+        prod-apps-project
+        {{- else -}}
+        default
+        {{- end }}
+
+      # ------------------------------------------------------------------------
+      # SOURCE: Git repo + overlay path
+      # ------------------------------------------------------------------------
+      source:
+        repoURL: https://github.com/SodiqIshola/DevOps-Project
+        targetRevision: main
+        path: "{{path}}"
+
+      # ------------------------------------------------------------------------
+      # DESTINATION: Kubernetes cluster
+      # ------------------------------------------------------------------------
+      destination:
+        server: https://kubernetes.default.svc
+
+        # ----------------------------------------------------------------------
+        # NAMESPACE MAPPING
+        # ----------------------------------------------------------------------
+        # Normalize names for clarity:
+        #
+        # development → dev-namespace
+        # production  → prod-namespace
+        #
+        # Keeps naming short and aligned with enterprise standards
+        # ----------------------------------------------------------------------
+        namespace: >-
+          {{- if eq .path.basename "development" -}}
+          dev-namespace
+          {{- else if eq .path.basename "production" -}}
+          prod-namespace
+          {{- else -}}
+          default
+          {{- end }}
+
+      # ------------------------------------------------------------------------
+      # DEFAULT SYNC POLICY (MANUAL)
+      # ------------------------------------------------------------------------
+      # Production inherits this → safe deployments
+      # ------------------------------------------------------------------------
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true
+
+  # ============================================================================
+  # TEMPLATE PATCH (DEV ONLY)
+  # ============================================================================
+  # Enables:
+  # - Auto deploy
+  # - Drift correction
+  # - Resource pruning
+  #
+  # Only applies to development environment
+  # ============================================================================
+  templatePatch: |
+    {{- if eq .path.basename "development" }}
+    spec:
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+    {{- end }}
+
+  # ============================================================================
+  # GLOBAL RETRY POLICY
+  # ============================================================================
+  # Helps recover from:
+  # - temporary API failures
+  # - CRD delays
+  # - network issues
+  # ============================================================================
+  syncPolicy:
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

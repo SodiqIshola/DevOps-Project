@@ -1,0 +1,48 @@
+
+# Patch for Prometheus Stack
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+spec:
+  sources:
+    - helm:
+        valueFiles:
+          - $config/k8s/monitoring/helm/values/prometheus-stack.yaml
+          - $config/k8s/monitoring/helm/values/prometheus-stack-aws.yaml
+---
+# Patch for Loki
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: loki
+spec:
+  sources:
+    - helm:
+        valueFiles:
+          - $config/k8s/monitoring/helm/values/loki.yaml
+          - $config/k8s/monitoring/helm/values/loki-aws.yaml
+---
+# Patch for Alloy
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: alloy
+spec:
+  sources:
+    - helm:
+        valueFiles:
+          - $config/k8s/monitoring/helm/values/alloy.yaml
+          - $config/k8s/monitoring/helm/values/alloy-aws.yaml
+---
+# Patch for OTEL Collector
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: otel-collector
+spec:
+  sources:
+    - helm:
+        valueFiles:
+          - $config/k8s/monitoring/helm/values/otel-collector.yaml
+          - $config/k8s/monitoring/helm/values/otel-aws.yaml
