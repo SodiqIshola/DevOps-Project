@@ -1,4 +1,15 @@
-# Install ArgoCD via Helm
+################################################################################
+# ARGOCD INFRASTRUCTURE: HELM, IAM, SECURITY, AND NETWORKING
+# 
+# This configuration performs the following:
+# 1. Installs ArgoCD via Helm with the built-in Ingress DISABLED.
+# 2. Creates a manual Kubernetes Ingress to allow "Catch-all" access via the 
+#    ALB DNS name (resolving the "://example.com" default host issue).
+# 3. Sets up IRSA (IAM Roles for Service Accounts) for secure AWS integration.
+# 4. Configures an AWS Security Group for strict network access control.
+################################################################################
+
+# ARGOCD HELM INSTALLATION
 resource "helm_release" "argocd" {
   name       = "argocd"
   repository = "https://argoproj.github.io/argo-helm"
@@ -18,46 +29,77 @@ resource "helm_release" "argocd" {
       } 
 
       server = {
-        ingress = {
-          enabled = true
-          ingressClassName = "alb"
-
-          hosts = ["argocd.example.com"]
-
+        # Link the IAM Role to the ServiceAccount (IRSA)
+        serviceAccount = {
+          create = true
           annotations = {
-            "kubernetes.io/ingress.class"           = "alb"
-            # --- Security & Networking ---
-            "alb.ingress.kubernetes.io/scheme"      = "internet-facing"
-            "alb.ingress.kubernetes.io/target-type" = "ip"
-
-            # --- Cost Optimization (ALB Sharing) ---
-            # 'group.name' allows this Ingress to share the same physical Load Balancer 
-            # with other apps (like your APIs). This reduces your AWS monthly bill.
-            "alb.ingress.kubernetes.io/group.name"  = "platform"
-
-            # --- Traffic Routing ---
-            # Tells the ALB to talk to ArgoCD pods over HTTPS (required for ArgoCD)
-            "alb.ingress.kubernetes.io/backend-protocol" = "HTTPS"
-
-            # Links your WAF firewall to this specific entry point
-            "alb.ingress.kubernetes.io/wafv2-acl-arn" = var.waf_arn
-            
-            # Restricts UI access to only your authorized IP ranges
-            "alb.ingress.kubernetes.io/inbound-cidrs" = join(",", var.allowed_cidr)
+            "eks.amazonaws.com/role-arn" = aws_iam_role.argocd.arn
           }
         }
+
+        # disable the built-in ingress to stop the chart from forcing "://example.com"
+        ingress = { enabled = false }
       }
 
+      # Runs ArgoCD in HTTP mode internally to match our ALB backend protocol
       configs = {
-        params = {
-          "server.insecure" = true
-        }
+        params = { "server.insecure" = true }
       }
     })
   ]
 }
 
 
+# --- ALB INGRESS ---
+# Manually creates the Ingress to allow access via the raw AWS Load Balancer URL.
+resource "kubernetes_ingress_v1" "argocd_manual" {
+  metadata {
+    name      = "argocd-server-manual"
+    namespace = var.namespace
+
+    annotations = {
+      "kubernetes.io/ingress.class"                = "alb"
+      "alb.ingress.kubernetes.io/scheme"           = "internet-facing"
+      "alb.ingress.kubernetes.io/target-type"      = "ip"
+      "alb.ingress.kubernetes.io/group.name"       = "platform"
+      "alb.ingress.kubernetes.io/backend-protocol" = "HTTP"
+      "alb.ingress.kubernetes.io/listen-ports"     = "[{\"HTTP\": 80}]"
+      "alb.ingress.kubernetes.io/security-groups"  = aws_security_group.argocd.id
+      "alb.ingress.kubernetes.io/inbound-cidrs"    = join(",", var.allowed_cidr)
+      "alb.ingress.kubernetes.io/wafv2-acl-arn"    = var.waf_arn
+      
+      # --- ADD THESE FOR HEALTH CHECKS ---
+      # ArgoCD returns a 200 on /healthz even when unauthenticated
+      "alb.ingress.kubernetes.io/healthcheck-path"             = "/healthz"
+      "alb.ingress.kubernetes.io/healthcheck-protocol"         = "HTTP"
+      "alb.ingress.kubernetes.io/success-codes"                = "200-399"
+      "alb.ingress.kubernetes.io/healthcheck-interval-seconds" = "15"
+      "alb.ingress.kubernetes.io/healthcheck-timeout-seconds"  = "5"
+    }
+  }
+
+  spec {
+    ingress_class_name = "alb"
+    rule {
+      # Leaving 'host' undefined creates a '*' rule for the ALB DNS name
+      http {
+        path {
+          path      = "/"
+          path_type = "Prefix"
+  
+          backend {
+            service {
+              name = "argocd-server"
+              port { number = 80 }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  depends_on = [helm_release.argocd]
+}
 
 
 
@@ -120,7 +162,6 @@ resource "aws_iam_role_policy_attachment" "argocd" {
 
 
 
-
 # --- SECURITY GROUP (ONLY if LoadBalancer used) ---
 # This defines the firewall rules for the ArgoCD Load Balancer.
 # It controls who can reach the ArgoCD UI/API from the internet or internal network.
@@ -138,6 +179,15 @@ resource "aws_security_group" "argocd" {
     cidr_blocks = var.allowed_cidr 
   }
 
+  # Public/Authorized Access to the Load Balancer
+  ingress {
+    description = "Allow HTTP traffic from users"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = var.allowed_cidr 
+  }
+
   # Outbound Rules: Define what ArgoCD can access
   egress {
     description = "Allow all outbound traffic"
@@ -151,6 +201,24 @@ resource "aws_security_group" "argocd" {
     Name = "${var.cluster_name}-argocd-sg"
   }
 }
+
+# --- BACKEND CONNECTIVITY (ALB TO EKS NODES) ---
+# This rule bridges the network gap between the Application Load Balancer (ALB) 
+# and the ArgoCD pods running on EKS. 
+resource "aws_security_group_rule" "alb_to_nodes" {
+  type                     = "ingress"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  description              = "Allow ArgoCD ALB to communicate with backend pods on port 8080"
+  
+  # The Target: The EKS-managed node security group (via remote state)
+  security_group_id        = var.eks_nodes_security_group
+  
+  # The Source: The dedicated ArgoCD ALB security group
+  source_security_group_id = aws_security_group.argocd.id
+}
+
 
 
 

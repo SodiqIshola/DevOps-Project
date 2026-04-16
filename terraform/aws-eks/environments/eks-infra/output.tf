@@ -26,3 +26,9 @@ output "vpc_id" {
 output "waf_arn" {
   value = module.waf.web_acl_arn
 }
+
+output "eks_cluster_security_group_id" {
+  description = "The security group ID created by EKS"
+  value       = module.eks.cluster_security_group_id 
+}
+

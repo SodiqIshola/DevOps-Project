@@ -26,7 +26,7 @@ variable "helm_values_path" {
 variable "overlay_path" {
   description = "The path to the AWS-specific kustomize overlay"
   type        = string
-  default     = "../k8s/monitoring/argo-cd/overlays/aws"
+  default     = "k8s/monitoring/argo-cd/overlays/aws"
 }
 
 variable "base_path" {
