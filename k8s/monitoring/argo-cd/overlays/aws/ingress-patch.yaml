@@ -8,7 +8,11 @@ metadata:
   namespace: argocd  
 spec:
   sources:
-    - helm:
+    # Source : The remote Helm Chart
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: 82.10.3
+      helm:
         valueFiles:
           - $config/k8s/monitoring/helm/values/prometheus-stack.yaml
           - $config/k8s/monitoring/helm/values/prometheus-stack-aws.yaml
@@ -23,7 +27,10 @@ metadata:
   namespace: argocd
 spec:
   sources:
-    - helm:
+    - repoURL: https://grafana-community.github.io/helm-charts
+      chart: loki
+      targetRevision: 6.55.0
+      helm:
         valueFiles:
           - $config/k8s/monitoring/helm/values/loki.yaml
           - $config/k8s/monitoring/helm/values/loki-aws.yaml
@@ -38,7 +45,10 @@ metadata:
   namespace: argocd
 spec:
   sources:
-    - helm:
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: alloy
+      targetRevision: 1.7.0
+      helm:
         valueFiles:
           - $config/k8s/monitoring/helm/values/alloy.yaml
           - $config/k8s/monitoring/helm/values/alloy-aws.yaml
@@ -53,7 +63,10 @@ metadata:
   namespace: argocd
 spec:
   sources:
-    - helm:
+    - repoURL: https://open-telemetry.github.io/opentelemetry-helm-charts
+      chart: opentelemetry-collector
+      targetRevision: 0.147.0
+      helm:
         valueFiles:
           - $config/k8s/monitoring/helm/values/otel-collector.yaml
           - $config/k8s/monitoring/helm/values/otel-aws.yaml
