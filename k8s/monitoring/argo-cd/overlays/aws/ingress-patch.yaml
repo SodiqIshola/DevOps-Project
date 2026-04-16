@@ -16,6 +16,11 @@ spec:
         valueFiles:
           - $config/k8s/monitoring/helm/values/prometheus-stack.yaml
           - $config/k8s/monitoring/helm/values/prometheus-stack-aws.yaml
+    
+    # Source 2: Your private Git repository for configuration
+    - repoURL: https://github.com/SodiqIshola/DevOps-Project
+      targetRevision: main
+      ref: config 
 
 
 ---
@@ -35,6 +40,10 @@ spec:
           - $config/k8s/monitoring/helm/values/loki.yaml
           - $config/k8s/monitoring/helm/values/loki-aws.yaml
 
+    - repoURL: https://github.com/SodiqIshola/DevOps-Project 
+      targetRevision: main 
+      ref: config 
+
 
 ---
 # Patch for Alloy
@@ -53,6 +62,10 @@ spec:
           - $config/k8s/monitoring/helm/values/alloy.yaml
           - $config/k8s/monitoring/helm/values/alloy-aws.yaml
 
+    - repoURL: https://github.com/SodiqIshola/DevOps-Project 
+      targetRevision: main 
+      ref: config 
+
 
 ---
 # Patch for OTEL Collector
@@ -70,3 +83,9 @@ spec:
         valueFiles:
           - $config/k8s/monitoring/helm/values/otel-collector.yaml
           - $config/k8s/monitoring/helm/values/otel-aws.yaml
+
+    - repoURL: https://github.com/SodiqIshola/DevOps-Project 
+      targetRevision: main 
+      ref: config 
+
+
