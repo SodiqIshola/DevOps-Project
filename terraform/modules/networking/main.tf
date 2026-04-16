@@ -21,7 +21,13 @@ resource "aws_subnet" "public" {
   availability_zone       = data.aws_availability_zones.available.names[count.index]
   map_public_ip_on_launch = true
 
-  tags = { Name = "fargate-public-${count.index}" }
+  tags = merge(
+    {
+      Name = "fargate-public-${count.index}" 
+    },
+    var.public_subnet_tags
+
+  )
 }
 
 # -----------------------------------------------------------------------------
@@ -34,7 +40,13 @@ resource "aws_subnet" "private" {
   cidr_block        = cidrsubnet(aws_vpc.main.cidr_block, 8, count.index + 2)
   availability_zone = data.aws_availability_zones.available.names[count.index]
 
-  tags = { Name = "fargate-private-${count.index}" }
+  tags = merge(
+    {
+      Name = "fargate-private-${count.index}" 
+    },
+    var.private_subnet_tags
+
+  )
 }
 
 # -----------------------------------------------------------------------------

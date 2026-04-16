@@ -1,0 +1,62 @@
+
+# yaml-language-server: $schema=none
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: loki
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+
+  labels:
+    stack: observability
+    component: logging
+    app.kubernetes.io/component: backend-engine
+    app.kubernetes.io/part-of: monitoring-stack
+    scope: cross-environment
+    managed-by: argocd
+
+
+spec:
+  project: observability-project
+  sources:
+    # Source 1: Pulls the official Helm Chart logic from the Grafana community
+    - repoURL: https://grafana-community.github.io/helm-charts
+      chart: loki
+      targetRevision: 6.55.0
+      helm:
+        valueFiles:
+          - $config/k8s/monitoring/helm/values/loki.yaml
+    
+    # Source 2: The Git repository acting as the "Source of Truth" for your custom settings
+    - repoURL: https://github.com/SodiqIshola/DevOps-Project 
+      targetRevision: main 
+      ref: config 
+
+  destination:
+    # Deploys to the local cluster where Argo CD is installed and target namespace for the actual Loki pods and services
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+    
+  syncPolicy:
+    automated:
+      prune: true      # Garbage collection: deletes resources no longer defined in Git
+      selfHeal: true   # Configuration drift protection: overrides manual cluster changes
+    syncOptions:
+      # Creates the 'monitoring' namespace automatically if it doesn't already exist
+      - CreateNamespace=true
+    retry:
+      # Exponential backoff strategy to handle transient API errors or slow startup
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
+
+  info:
+    - name: 'Description'
+      value: 'Scalable log aggregation system for centralized log storage and querying.'
+    - name: 'Configuration'
+      value: 'Hybrid Helm/Git setup managing retention, storage, and index schemas.'
+    - name: 'Architecture'
+      value: 'Sync Wave 2: Backend storage for logs collected by Alloy and other agents.'

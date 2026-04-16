@@ -62,6 +62,24 @@ Now, apply your Root Application and AppProject. This single command triggers th
   # Deploy the Root Application to begin the automated sync of the stack
     kubectl apply -f k8s/monitoring/argo-cd/monitoring-stack-root.yaml
 
+    
+    export TARGET_PATH="k8s/monitoring/argo-cd/base"
+    envsubst < k8s/monitoring/argo-cd/monitoring-stack-root.yaml | kubectl apply -f -
+
+
+    The Local "Merge" Command
+    This command mimics your Terraform logic by taking the base YAML and "injecting" your local variable into the spec.source.path field:
+    
+    export OVERLAY_PATH="k8s/monitoring/argo-cd/base"
+
+    yq ".spec.source.path = \"$OVERLAY_PATH\"" k8s/monitoring/argo-cd/monitoring-stack-root.yaml | kubectl apply -f -
+
+    Alternative: Using strenv for Safety
+If your path contains special characters, use the strenv function in yq to pull the variable directly from your environment:
+bash
+export OVERLAY_PATH="k8s/monitoring/argo-cd/base"
+yq '.spec.source.path = strenv(OVERLAY_PATH)' monitoring-stack-root.yaml | kubectl apply -f -
+
 
 <!-- Access the Dashboard
 Since you mapped port 8080 in your k3d command, you can use port-forwarding to reach the UI from your local browser. -->
@@ -88,18 +106,31 @@ Since you mapped port 8080 in your k3d command, you can use port-forwarding to r
 You must apply these first. If you try to deploy the Root Apps before the Projects exist, Argo CD will reject the Applications. -->
 
   # Define the boundaries for Dev and Prod workloads
-    kubectl apply -f dev-apps-project.yaml
-    kubectl apply -f prod-apps-project.yaml
+    kubectl apply -f k8s/apps/nodejs-app/argo-cd/development/dev-project.yaml
+
+
+    kubectl apply -f k8s/apps/nodejs-app/argo-cd/production/prod-project.yaml
+
 
 <!-- 
 Deploy the Root Orchestrators
 These are your "App-of-Apps" masters. Once applied, they will scan your Git folders and automatically begin deploying the NodeJS microservices. -->
 
   # Bootstrap the Development environment
-    kubectl apply -f dev-app-root.yaml
+    kubectl apply -f k8s/apps/nodejs-app/argo-cd/development/dev-app-root.yaml
 
   # Bootstrap the Production environment
-    kubectl apply -f prod-monitoring-root.yaml
+    kubectl apply -f k8s/apps/nodejs-app/argo-cd/production/prod-app-root.yaml
+
+    # NOTE: PRODUCTION SAFETY GATE: Automated sync is disabled to require "Manual Approval." 
+    # ArgoCD will not touch the production namespace until these commands are explicitly run.
+      # 1. ORCHESTRATION: Tell the Root App to create the Application objects (the "Child Apps") 
+      # and Projects in the cluster based on your Git manifests.
+        argocd app sync prod-app-root --app-namespace argocd --grpc-web
+
+      # 2. DEPLOYMENT: Manually trigger the actual delivery of pods and services into 
+      # the production namespace. This is your "Human-in-the-loop" approval step.
+        argocd app sync nodejs-app-prod --app-namespace argocd --grpc-web
 
 
 
@@ -108,13 +139,6 @@ These are your "App-of-Apps" masters. Once applied, they will scan your Git fold
 
 
 
-
-
-<!-- 1. The Deployment Command
-Run this from your terminal in the directory where your file is located: -->
-
-  # Apply the Root manifest to the cluster
-  kubectl apply -f k8s/infra/monitoring/bootstrap/root.yaml
 
 
 
@@ -136,21 +160,6 @@ First, find out which specific part of the application is failing: -->
   # Get the status of all resources managed by the app
   argocd app get <child-app-name>
 
-
-<!-- Check the Kubernetes Events
-If a Pod isn't starting, the best place to look is the Events in the target namespace: -->
-  # Example: Check why Loki isn't starting in the monitoring namespace
-  kubectl get events -n monitoring --sort-by='.lastTimestamp'
-
-Common "Stuck" Scenarios & Fixes
-Scenario	          Typical Cause	        Fix
-ImagePullBackOff	Wrong image name or private registry credentials missing.	Check your values.yaml for the correct image/tag.
-
-CrashLoopBackOff	App is crashing (e.g., Alloy can't find its .alloy config file).	Check logs: kubectl logs <pod-name> -n monitoring.
-
-Pending (PVC)	The Cloud/Cluster doesn't have the StorageClass you requested.	Check PVCs: kubectl get pvc -n monitoring.
-
-Missing CRD	You tried to deploy a ServiceMonitor before Prometheus finished.	Ensure your Sync Waves are set correctly (CRDs must be Wave 0).
 
 
 <!--  Force a Refresh/Sync

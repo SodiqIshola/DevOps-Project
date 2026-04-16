@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespaces.yaml
+  - monitoring-project.yaml
+  - monitoring-stack-root.yaml # The "App of Apps" if applicable
+  - prometheus-stack.yaml
+  - loki.yaml
+  - alloy.yaml
+  - otel-collector.yaml
+  - tempo.yaml
+  - configmaps-assets.yaml
+  - rules-serviceMonitor-assets.yaml

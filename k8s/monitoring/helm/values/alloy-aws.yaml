@@ -1,0 +1,41 @@
+
+# alloy-aws.yaml
+# Configured to join the same ALB group as Prometheus and Grafana
+ingress:
+  enabled: true
+  ingressClassName: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: platform
+    alb.ingress.kubernetes.io/wafv2-acl-arn: "${waf_arn}"
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+  # Using path-based routing since you don't have a domain
+  hosts: []
+  path: /alloy/*
+  pathType: Prefix
+
+# Patching Alloy to handle the sub-path correctly
+alloy:
+  extraArgs:
+    - "--server.http.prefix=/alloy"
+  
+  # Ensure the UI and Faro know about the path
+  config: |
+    logging {
+      level  = "info"
+      format = "logfmt"
+    }
+    
+    prometheus.exporter.self "alloy_check" {}
+    
+    # Faro receiver for frontend telemetry
+    faro.receiver "default" {
+      server {
+        listen_address = "0.0.0.0"
+        listen_port    = 12345
+      }
+      output {
+        # send to your prometheus instance
+      }
+    }

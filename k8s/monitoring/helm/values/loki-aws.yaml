@@ -1,0 +1,39 @@
+
+gateway:
+  enabled: true
+
+  # --- HEALTH CHECKS ---
+  startupProbe:
+    httpGet:
+      path: /
+      port: http-metrics
+    failureThreshold: 15
+    periodSeconds: 10
+  livenessProbe:
+    httpGet:
+      path: /
+      port: http-metrics
+    periodSeconds: 15
+  readinessProbe:
+    httpGet:
+      path: /
+      port: http-metrics
+    periodSeconds: 10
+
+  # --- INGRESS PATCHED FOR AWS ALB ---
+  ingress:
+    enabled: true
+    ingressClassName: alb
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/group.name: platform
+      alb.ingress.kubernetes.io/wafv2-acl-arn: "${waf_arn}"
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+      # Helps with large log uploads/queries
+      alb.ingress.kubernetes.io/load-balancer-attributes: "idle_timeout.timeout_seconds=600"
+    hosts:
+      - host:  # Empty for no-domain ALB usage
+        paths:
+          - path: /loki
+            pathType: Prefix
