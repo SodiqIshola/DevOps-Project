@@ -60,7 +60,6 @@ grafana:
     storageClassName: gp3
     type: pvc
     size: 2Gi
-    finalizers: ["kubernetes.io/pvc-protection"]
   
   initChownData:
     enabled: true
