@@ -3,7 +3,8 @@
 
 persistence:
   enabled: true
-  storageClass: gp3  # Overrides 'local-path' from base
+  storageClassName: "gp3"
   size: 2Gi
   accessModes:
     - ReadWriteOnce
+
