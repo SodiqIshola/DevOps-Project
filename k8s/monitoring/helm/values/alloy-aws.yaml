@@ -5,7 +5,8 @@ ingress:
   enabled: true
   ingressClassName: alb
   annotations:
-    kubernetes.io/ingress.class: null
+    kubernetes.io/ingress.class: ""
+
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/group.name: platform

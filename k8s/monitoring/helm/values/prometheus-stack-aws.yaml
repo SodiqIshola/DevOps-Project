@@ -4,7 +4,8 @@ prometheus:
     enabled: true
     ingressClassName: alb
     annotations:
-      kubernetes.io/ingress.class: null
+      kubernetes.io/ingress.class: ""
+
       alb.ingress.kubernetes.io/scheme: internet-facing
       alb.ingress.kubernetes.io/target-type: ip
       alb.ingress.kubernetes.io/group.name: platform
@@ -44,7 +45,8 @@ grafana:
     enabled: true
     ingressClassName: alb
     annotations:
-      kubernetes.io/ingress.class: null
+      kubernetes.io/ingress.class: ""
+
       alb.ingress.kubernetes.io/scheme: internet-facing
       alb.ingress.kubernetes.io/target-type: ip
       alb.ingress.kubernetes.io/group.name: platform
@@ -70,3 +72,4 @@ grafana:
       serve_from_sub_path: true
     auth.anonymous:
       enabled: false
+
