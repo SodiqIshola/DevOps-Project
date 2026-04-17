@@ -89,3 +89,27 @@ spec:
       ref: config 
 
 
+
+---
+# Patch for tempo
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tempo
+  namespace: argocd
+spec:
+  sources:
+    - repoURL: https://grafana-community.github.io/helm-charts
+      chart: tempo
+      targetRevision: 2.0.0
+      helm:
+        valueFiles:
+          - $config/k8s/monitoring/helm/values/otel-collector.yaml
+          - $config/k8s/monitoring/helm/values/otel-aws.yaml
+
+    - repoURL: https://github.com/SodiqIshola/DevOps-Project 
+      targetRevision: main 
+      ref: config 
+
+
+

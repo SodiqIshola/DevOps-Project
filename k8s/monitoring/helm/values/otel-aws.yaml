@@ -1,23 +1,9 @@
 # otel-aws.yaml
 
-# =============================================================================
-# EXTERNAL ACCESS (INGRESS)
-# =============================================================================
-# Only use this if you have apps OUTSIDE the cluster sending data.
-ingress:
-  enabled: true
-  ingressClassName: alb
-  annotations:
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/group.name: platform
-    alb.ingress.kubernetes.io/wafv2-acl-arn: "${waf_arn}"
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
-  hosts: [] 
-  paths:
-    # Route for external OTLP HTTP traffic
-    - path: /otel
-      pathType: Prefix
-      port: 4318
+# otel-aws.yaml
+# Disables the default ingress and sets up the ALB for OTLP data only
 
+ingress:
+  # This disables the default ingress defined in your base values
+  enabled: false 
 

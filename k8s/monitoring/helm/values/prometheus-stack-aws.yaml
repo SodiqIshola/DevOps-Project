@@ -1,8 +1,8 @@
+# prometheus-stack-aws.yaml
 prometheus:
   ingress:
     enabled: true
     ingressClassName: alb
-    # Leave hosts empty/null to accept the default ALB DNS name
     hosts: []
     paths: 
       - /prometheus/*
@@ -11,10 +11,36 @@ prometheus:
       alb.ingress.kubernetes.io/target-type: ip
       alb.ingress.kubernetes.io/group.name: platform
       alb.ingress.kubernetes.io/wafv2-acl-arn: "${waf_arn}"
-      # Rewrite the path so Prometheus doesn't get confused
       alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+  
+  prometheusSpec:
+    # Prometheus needs this to handle the /prometheus/ sub-path
+    externalUrl: "/prometheus/"
+    routePrefix: /prometheus
+
+    # --- PROMETHEUS STORAGE ---
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3 # Use gp3 for AWS EBS
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 2Gi
 
 grafana:
+  # --- GRAFANA STORAGE ---
+  persistence:
+    enabled: true
+    storageClassName: gp3 # Matches Prometheus
+    type: pvc
+    size: 2Gi
+    finalizers: ["kubernetes.io/pvc-protection"]
+  
+  # Ensure Grafana can write to the EBS volume
+  initChownData:
+    enabled: true
+
   ingress:
     enabled: true
     ingressClassName: alb
@@ -27,10 +53,10 @@ grafana:
       alb.ingress.kubernetes.io/wafv2-acl-arn: "${waf_arn}"
       alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
 
-  # IMPORTANT: Grafana needs to know it lives at /grafana
   grafana.ini:
     server:
       root_url: "%(protocol)s://%(domain)s:%(http_port)s/grafana/"
       serve_from_sub_path: true
     auth.anonymous:
       enabled: false
+
