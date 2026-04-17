@@ -52,4 +52,4 @@ controller:
     enabled: true
     accessModes: ["ReadWriteOnce"]
     size: 2Gi
-    storageClassName: "gp3"
+    storageClassName: gp3
