@@ -21,6 +21,30 @@ prometheus:
   prometheusSpec:
     externalUrl: "/prometheus/"
     routePrefix: /prometheus
+
+    containers:
+      - name: prometheus
+        startupProbe:
+          httpGet:
+            path: /prometheus/-/ready
+            port: http-web
+          failureThreshold: 30
+          periodSeconds: 10
+
+        livenessProbe:
+          httpGet:
+            path: /prometheus/-/healthy
+            port: http-web
+          periodSeconds: 10
+          failureThreshold: 3
+
+        readinessProbe:
+          httpGet:
+            path: /prometheus/-/ready
+            port: http-web
+          periodSeconds: 10
+          failureThreshold: 3
+
     storageSpec:
       volumeClaimTemplate:
         spec:
