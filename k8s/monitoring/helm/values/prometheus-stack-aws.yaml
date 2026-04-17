@@ -3,55 +3,64 @@ prometheus:
   ingress:
     enabled: true
     ingressClassName: alb
-    hosts: []
-    paths: 
-      - /prometheus/*
     annotations:
       alb.ingress.kubernetes.io/scheme: internet-facing
       alb.ingress.kubernetes.io/target-type: ip
       alb.ingress.kubernetes.io/group.name: platform
       alb.ingress.kubernetes.io/wafv2-acl-arn: "${waf_arn}"
       alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
-  
+    # FIXED: Added host entry to trigger manifest creation
+    hosts:
+      - "" 
+    paths: 
+      - /prometheus
+      - /prometheus/*
+
   prometheusSpec:
-    # Prometheus needs this to handle the /prometheus/ sub-path
     externalUrl: "/prometheus/"
     routePrefix: /prometheus
-
-    # --- PROMETHEUS STORAGE ---
     storageSpec:
       volumeClaimTemplate:
         spec:
-          storageClassName: gp3 # Use gp3 for AWS EBS
+          storageClassName: gp3
           accessModes: ["ReadWriteOnce"]
           resources:
             requests:
               storage: 2Gi
 
 grafana:
-  # --- GRAFANA STORAGE ---
   persistence:
     enabled: true
-    storageClassName: gp3 # Matches Prometheus
+    storageClassName: gp3
     type: pvc
     size: 2Gi
     finalizers: ["kubernetes.io/pvc-protection"]
   
-  # Ensure Grafana can write to the EBS volume
   initChownData:
     enabled: true
 
   ingress:
     enabled: true
     ingressClassName: alb
-    hosts: []
-    path: /grafana/*
     annotations:
       alb.ingress.kubernetes.io/scheme: internet-facing
       alb.ingress.kubernetes.io/target-type: ip
       alb.ingress.kubernetes.io/group.name: platform
       alb.ingress.kubernetes.io/wafv2-acl-arn: "${waf_arn}"
       alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    # FIXED: Added host entry
+    hosts:
+      - ""
+    path: /grafana
+    # Some chart versions require 'extraPaths' for the wildcard
+    extraPaths:
+      - path: /grafana/*
+        pathType: Prefix
+        backend:
+          service:
+            name: kube-prometheus-stack-grafana
+            port:
+              number: 80
 
   grafana.ini:
     server:
@@ -59,4 +68,3 @@ grafana:
       serve_from_sub_path: true
     auth.anonymous:
       enabled: false
-
