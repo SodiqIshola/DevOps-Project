@@ -4,12 +4,13 @@ prometheus:
     enabled: true
     ingressClassName: alb
     annotations:
+      kubernetes.io/ingress.class: null
       alb.ingress.kubernetes.io/scheme: internet-facing
       alb.ingress.kubernetes.io/target-type: ip
       alb.ingress.kubernetes.io/group.name: platform
       alb.ingress.kubernetes.io/wafv2-acl-arn: "${waf_arn}"
       alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
-    # FIXED: Added host entry to trigger manifest creation
+
     hosts:
       - "" 
     paths: 
@@ -43,12 +44,13 @@ grafana:
     enabled: true
     ingressClassName: alb
     annotations:
+      kubernetes.io/ingress.class: null
       alb.ingress.kubernetes.io/scheme: internet-facing
       alb.ingress.kubernetes.io/target-type: ip
       alb.ingress.kubernetes.io/group.name: platform
       alb.ingress.kubernetes.io/wafv2-acl-arn: "${waf_arn}"
       alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
-    # FIXED: Added host entry
+
     hosts:
       - ""
     path: /grafana
