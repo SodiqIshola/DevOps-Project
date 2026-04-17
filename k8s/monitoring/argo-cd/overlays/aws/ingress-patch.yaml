@@ -104,8 +104,8 @@ spec:
       targetRevision: 2.0.0
       helm:
         valueFiles:
-          - $config/k8s/monitoring/helm/values/otel-collector.yaml
-          - $config/k8s/monitoring/helm/values/otel-aws.yaml
+          - $config/k8s/monitoring/helm/values/tempo.yaml
+          - $config/k8s/monitoring/helm/values/tempo-aws.yaml
 
     - repoURL: https://github.com/SodiqIshola/DevOps-Project 
       targetRevision: main 
