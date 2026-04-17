@@ -1,0 +1,9 @@
+# tempo-aws.yaml
+# Only overriding persistence to use AWS EBS
+
+persistence:
+  enabled: true
+  storageClass: gp3  # Overrides 'local-path' from base
+  size: 2Gi
+  accessModes:
+    - ReadWriteOnce

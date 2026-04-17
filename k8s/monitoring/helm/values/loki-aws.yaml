@@ -1,7 +1,18 @@
+# loki-aws.yaml
+deploymentMode: SingleBinary
+
+singleBinary:
+  replicas: 1
+  # --- PERSISTENCE PATCHED FOR AWS ---
+  persistence:
+    enabled: true
+    accessModes: ["ReadWriteOnce"]
+    size: 2Gi
+    storageClass: gp3  # Overrides 'local-path' with AWS EBS gp3
+
 
 gateway:
   enabled: true
-
   # --- HEALTH CHECKS ---
   startupProbe:
     httpGet:
@@ -30,10 +41,11 @@ gateway:
       alb.ingress.kubernetes.io/group.name: platform
       alb.ingress.kubernetes.io/wafv2-acl-arn: "${waf_arn}"
       alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
-      # Helps with large log uploads/queries
       alb.ingress.kubernetes.io/load-balancer-attributes: "idle_timeout.timeout_seconds=600"
     hosts:
-      - host:  # Empty for no-domain ALB usage
+      - host: "" # Required for ALB to route correctly without a domain
         paths:
           - path: /loki
+            pathType: Prefix
+          - path: /loki/*
             pathType: Prefix

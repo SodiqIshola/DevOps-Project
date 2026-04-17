@@ -1,6 +1,6 @@
-
 # alloy-aws.yaml
-# Configured to join the same ALB group as Prometheus and Grafana
+# Combined patch to fix the crash and handle ALB sub-paths
+
 ingress:
   enabled: true
   ingressClassName: alb
@@ -10,32 +10,32 @@ ingress:
     alb.ingress.kubernetes.io/group.name: platform
     alb.ingress.kubernetes.io/wafv2-acl-arn: "${waf_arn}"
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
-  # Using path-based routing since you don't have a domain
-  hosts: []
-  path: /alloy/*
-  pathType: Prefix
+  hosts:
+    - host: ""
+      paths:
+        - path: /alloy
+          pathType: Prefix
+          port: 12345
+        - path: /alloy/*
+          pathType: Prefix
+          port: 12345
 
-# Patching Alloy to handle the sub-path correctly
 alloy:
   extraArgs:
-    - "--server.http.prefix=/alloy"
+    - "--server.http.ui-path-prefix=/alloy"
+    - "--storage.path=/var/lib/alloy/data"
+    - "--stability.level=generally-available"
   
-  # Ensure the UI and Faro know about the path
-  config: |
-    logging {
-      level  = "info"
-      format = "logfmt"
-    }
-    
-    prometheus.exporter.self "alloy_check" {}
-    
-    # Faro receiver for frontend telemetry
-    faro.receiver "default" {
-      server {
-        listen_address = "0.0.0.0"
-        listen_port    = 12345
-      }
-      output {
-        # send to your prometheus instance
-      }
-    }
+  # Ensure the container has permissions to write to the EBS volume
+  securityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    runAsNonRoot: false
+
+controller:
+  type: daemonset
+  # --- PERSISTENT STORAGE OVERRIDE ---
+  storage:
+    enabled: true
+    size: 2Gi
+    storageClass: gp3  # Overrides 'local-path' from your base file
