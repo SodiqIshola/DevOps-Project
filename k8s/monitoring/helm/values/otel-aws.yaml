@@ -1,8 +1,4 @@
 # otel-aws.yaml
-
-# otel-aws.yaml
-# Disables the default ingress and sets up the ALB for OTLP data only
-
 ingress:
   # This disables the default ingress defined in your base values
   enabled: false 
