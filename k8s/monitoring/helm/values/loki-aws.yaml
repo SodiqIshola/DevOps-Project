@@ -3,16 +3,36 @@ deploymentMode: SingleBinary
 
 singleBinary:
   replicas: 1
-  # --- PERSISTENCE PATCHED FOR AWS ---
   persistence:
     enabled: true
     accessModes: ["ReadWriteOnce"]
     size: 2Gi
-    storageClass: gp3  # Overrides 'local-path' with AWS EBS gp3
-
+    storageClass: gp3
 
 gateway:
   enabled: true
+  # --- INGRESS PATCHED FOR AWS ALB ---
+  ingress:
+    enabled: true
+    ingressClassName: alb
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/group.name: platform
+      alb.ingress.kubernetes.io/wafv2-acl-arn: "${waf_arn}"
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+      alb.ingress.kubernetes.io/load-balancer-attributes: "idle_timeout.timeout_seconds=600"
+    
+    # FIXED: The Loki gateway chart usually expects a simple list of strings for hosts
+    hosts:
+      - "" 
+    
+    # Ensure the paths are defined clearly
+    paths:
+      - /loki
+      - /loki/*
+    pathType: Prefix
+
   # --- HEALTH CHECKS ---
   startupProbe:
     httpGet:
@@ -30,22 +50,3 @@ gateway:
       path: /
       port: http-metrics
     periodSeconds: 10
-
-  # --- INGRESS PATCHED FOR AWS ALB ---
-  ingress:
-    enabled: true
-    ingressClassName: alb
-    annotations:
-      alb.ingress.kubernetes.io/scheme: internet-facing
-      alb.ingress.kubernetes.io/target-type: ip
-      alb.ingress.kubernetes.io/group.name: platform
-      alb.ingress.kubernetes.io/wafv2-acl-arn: "${waf_arn}"
-      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
-      alb.ingress.kubernetes.io/load-balancer-attributes: "idle_timeout.timeout_seconds=600"
-    hosts:
-      - host: "" # Required for ALB to route correctly without a domain
-        paths:
-          - path: /loki
-            pathType: Prefix
-          - path: /loki/*
-            pathType: Prefix
