@@ -1,19 +1,20 @@
 # alloy-aws.yaml
 # Combined patch to fix the crash and handle ALB sub-paths
 
-
 ingress:
   enabled: true
   ingressClassName: alb
   annotations:
+    kubernetes.io/ingress.class: null
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/group.name: platform
     alb.ingress.kubernetes.io/wafv2-acl-arn: "${waf_arn}"
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
-  # Corrected for Alloy Helm Chart templates
+  
   hosts:
     - "" 
+  # Alloy chart uses extraPaths to add the specific ALB routing
   extraPaths:
     - path: /alloy
       pathType: Prefix
@@ -29,6 +30,7 @@ ingress:
           name: alloy
           port:
             number: 12345
+  
 
 alloy:
   extraArgs:

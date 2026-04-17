@@ -16,22 +16,22 @@ gateway:
     enabled: true
     ingressClassName: alb
     annotations:
+      kubernetes.io/ingress.class: null
       alb.ingress.kubernetes.io/scheme: internet-facing
       alb.ingress.kubernetes.io/target-type: ip
       alb.ingress.kubernetes.io/group.name: platform
       alb.ingress.kubernetes.io/wafv2-acl-arn: "${waf_arn}"
       alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
       alb.ingress.kubernetes.io/load-balancer-attributes: "idle_timeout.timeout_seconds=600"
-    
-    # FIXED: The Loki gateway chart usually expects a simple list of strings for hosts
+
     hosts:
-      - "" 
+      - host: "" 
+        paths:
+          - path: /loki
+            pathType: Prefix
+          - path: /loki/*
+            pathType: Prefix
     
-    # Ensure the paths are defined clearly
-    paths:
-      - /loki
-      - /loki/*
-    pathType: Prefix
 
   # --- HEALTH CHECKS ---
   startupProbe:
