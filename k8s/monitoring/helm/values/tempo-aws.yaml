@@ -3,7 +3,7 @@
 
 persistence:
   enabled: true
-  storageClassName: "gp3"
+  storageClassName: gp3
   size: 2Gi
   accessModes:
     - ReadWriteOnce
