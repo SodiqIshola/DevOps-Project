@@ -3,6 +3,8 @@
 
 ingress:
   enabled: true
+  # Grafana Faro allows Alloy to ingest frontend telemetry (JS errors, etc.)
+  faroPort: 12345 
   ingressClassName: alb
   annotations:
     kubernetes.io/ingress.class: "alb"
@@ -13,17 +15,24 @@ ingress:
     alb.ingress.kubernetes.io/wafv2-acl-arn: "${waf_arn}"
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
 
-    # Required for ALB to see the pod as healthy
+    # Health check points to the Alloy UI port
     alb.ingress.kubernetes.io/healthcheck-port: '12345'
     alb.ingress.kubernetes.io/healthcheck-path: /-/ready
     alb.ingress.kubernetes.io/success-codes: '200'
-  
-  hosts:
-    - host: ""
-      paths:
-        - /alloy 
 
-  pathType: Prefix
+  hosts:
+    - "*" 
+
+  # FIX: Use extraPaths to define the sub-path routing for the ALB
+  extraPaths:
+    - path: /alloy
+      pathType: Prefix
+      backend:
+        service:
+          name: alloy
+          port:
+            number: 12345
+
 
 alloy:
   extraArgs:
