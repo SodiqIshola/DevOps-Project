@@ -13,6 +13,7 @@ ingress:
     alb.ingress.kubernetes.io/wafv2-acl-arn: "${waf_arn}"
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
 
+    # Required for ALB to see the pod as healthy
     alb.ingress.kubernetes.io/healthcheck-port: '12345'
     alb.ingress.kubernetes.io/healthcheck-path: /-/ready
     alb.ingress.kubernetes.io/success-codes: '200'
@@ -25,7 +26,17 @@ ingress:
 
 alloy:
   extraArgs:
-    - "--server.http.ui-path-prefix=/alloy"
-    - "--storage.path=/var/lib/alloy/data"
-    - "--stability.level=generally-available"
+
+    # This ensures Alloy links work correctly when hosted at /alloy
+    - --server.http.ui-path-prefix=/alloy
+    - --storage.path=/var/lib/alloy/data
+    - --stability.level=generally-available
+  
+  # Ensure the service port matches what the Ingress expects (12345)
+  extraPorts:
+    - name: "metrics"
+      port: 12345
+      targetPort: 12345
+      protocol: "TCP"
+
   
