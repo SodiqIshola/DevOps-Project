@@ -18,9 +18,9 @@ prometheus:
       alb.ingress.kubernetes.io/healthcheck-path: /prometheus/-/ready
       alb.ingress.kubernetes.io/success-codes: '200'
 
-    hosts:
-      - "" 
+    hosts: []
     path: /prometheus
+    paths: []      
     pathType: Prefix
 
   prometheusSpec:
@@ -87,9 +87,9 @@ grafana:
       alb.ingress.kubernetes.io/healthcheck-path: /api/health
       alb.ingress.kubernetes.io/success-codes: '200'
 
-    hosts:
-      - ""
+    hosts: []
     path: /grafana
+    paths: []      
     pathType: Prefix
     extraPaths: []
 
