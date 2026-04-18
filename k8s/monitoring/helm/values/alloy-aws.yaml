@@ -21,8 +21,9 @@ ingress:
   hosts:
     - host: ""
       paths:
-        - path: /alloy
-          pathType: Prefix
+        - /alloy 
+
+  pathType: Prefix
 
 alloy:
   extraArgs:
