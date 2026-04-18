@@ -12,6 +12,12 @@ prometheus:
       alb.ingress.kubernetes.io/wafv2-acl-arn: "${waf_arn}"
       alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
 
+      # --- AWS ALB HEALTH CHECK ---
+      # Matches the routePrefix and Prometheus internal port (9090)
+      alb.ingress.kubernetes.io/healthcheck-port: '9090'
+      alb.ingress.kubernetes.io/healthcheck-path: /prometheus/-/ready
+      alb.ingress.kubernetes.io/success-codes: '200'
+
     hosts:
       - "" 
     paths: 
@@ -76,6 +82,12 @@ grafana:
       alb.ingress.kubernetes.io/wafv2-acl-arn: "${waf_arn}"
       alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
 
+      # --- AWS ALB HEALTH CHECK ---
+      # Grafana internal port is 3000
+      alb.ingress.kubernetes.io/healthcheck-port: '3000'
+      alb.ingress.kubernetes.io/healthcheck-path: /api/health
+      alb.ingress.kubernetes.io/success-codes: '200'
+
     hosts:
       - ""
     path: /grafana
@@ -91,8 +103,9 @@ grafana:
 
   grafana.ini:
     server:
+      domain: "" # Set this to your LB DNS or leave as is if using relative paths
       root_url: "%(protocol)s://%(domain)s:%(http_port)s/grafana/"
       serve_from_sub_path: true
-    auth.anonymous:
-      enabled: false
+
+
 

@@ -174,20 +174,18 @@ gateway:
   startupProbe:
     httpGet:
       path: /
-      port: http-metrics
+      port: 8080  # Direct port mapping for the gateway container
     failureThreshold: 15
     periodSeconds: 10
-
   livenessProbe:
     httpGet:
       path: /
-      port: http-metrics
+      port: 8080
     periodSeconds: 15
-
   readinessProbe:
     httpGet:
       path: /
-      port: http-metrics
+      port: 8080
     periodSeconds: 10
 
   # --- INGRESS ---

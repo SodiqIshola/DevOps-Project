@@ -115,16 +115,10 @@ alloy:
 # =============================================================================
 # DEPLOYMENT MODEL (DAEMONSET)
 # One Alloy pod per node ensures full node coverage for logs + metrics.
+# Kubernetes does not support dynamic PVC provisioning for DaemonSets; use hostPath or emptyDir for storage instead.
 # =============================================================================
 controller:
   type: daemonset
-
-  # --- LOCAL STORAGE ---
-  # Node-local PVC for buffering and temporary state.
-  storage:
-    enabled: true
-    size: 2Gi
-    storageClass: local-path
 
   # --- HOST PATH MOUNTS ---
   # Direct access to host filesystem required for exporters.

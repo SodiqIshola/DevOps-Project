@@ -12,18 +12,18 @@ ingress:
     alb.ingress.kubernetes.io/group.name: platform
     alb.ingress.kubernetes.io/wafv2-acl-arn: "${waf_arn}"
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+
+    alb.ingress.kubernetes.io/healthcheck-port: '12345'
+    alb.ingress.kubernetes.io/healthcheck-path: /-/ready
+    alb.ingress.kubernetes.io/success-codes: '200'
   
   hosts:
-    - "" 
+    - host: ""
+      paths:
+        - path: /alloy
+          pathType: Prefix
   # Alloy chart uses extraPaths to add the specific ALB routing
   extraPaths:
-    - path: /alloy
-      pathType: Prefix
-      backend:
-        service:
-          name: alloy
-          port:
-            number: 12345
     - path: /alloy/*
       pathType: Prefix
       backend:
@@ -39,17 +39,3 @@ alloy:
     - "--storage.path=/var/lib/alloy/data"
     - "--stability.level=generally-available"
   
-  securityContext:
-    runAsUser: 0
-    runAsGroup: 0
-    runAsNonRoot: false
-
-controller:
-  type: daemonset
-
-  # --- STORAGE CORRECTED FOR DAEMONSET ---
-  persistence:
-    enabled: true
-    accessModes: ["ReadWriteOnce"]
-    size: 2Gi
-    storageClassName: gp3
