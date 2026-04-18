@@ -201,8 +201,12 @@ ingress:
   annotations:
     kubernetes.io/ingress.class: traefik
     traefik.ingress.kubernetes.io/router.entrypoints: web
+
   hosts:
-    - alloy.monitoring.internal  # URL for accessing Alloy UI
+    - host: alloy.monitoring.internal
+      paths:
+        - /
+
   pathType: Prefix               # Standard path matching for sub-pages
 
 
