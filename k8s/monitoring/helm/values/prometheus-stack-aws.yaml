@@ -91,6 +91,7 @@ grafana:
       - ""
     path: /grafana
     pathType: ImplementationSpecific
+    extraPaths: []
 
   grafana.ini:
     server:
