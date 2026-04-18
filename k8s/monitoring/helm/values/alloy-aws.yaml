@@ -21,17 +21,13 @@ ingress:
     alb.ingress.kubernetes.io/success-codes: '200'
 
   hosts:
-    - "*" 
+    - host: "*"
+      paths:
+        - /alloy
 
-  # FIX: Use extraPaths to define the sub-path routing for the ALB
-  extraPaths:
-    - path: /alloy
-      pathType: Prefix
-      backend:
-        service:
-          name: alloy
-          port:
-            number: 12345
+  pathType: Prefix
+
+
 
 
 alloy:
