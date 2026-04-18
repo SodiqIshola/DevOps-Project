@@ -20,14 +20,9 @@ ingress:
     alb.ingress.kubernetes.io/healthcheck-path: /-/ready
     alb.ingress.kubernetes.io/success-codes: '200'
 
-  hosts:
-    - host: "*"
-      paths:
-        - /alloy
+  hosts: []
 
   pathType: Prefix
-
-
 
 
 alloy:
