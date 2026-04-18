@@ -27,9 +27,6 @@ ingress:
 
 alloy:
   extraArgs:
-
-    # This ensures Alloy links work correctly when hosted at /alloy
-    - --storage.path=/var/lib/alloy/data
     - --stability.level=generally-available
   
   # Ensure the service port matches what the Ingress expects (12345)
