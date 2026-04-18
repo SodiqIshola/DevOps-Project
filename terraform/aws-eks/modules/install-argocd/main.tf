@@ -202,15 +202,37 @@ resource "aws_security_group" "argocd" {
   }
 }
 
-# --- BACKEND CONNECTIVITY (ALB TO EKS NODES) ---
-# This rule bridges the network gap between the Application Load Balancer (ALB) 
-# and the ArgoCD pods running on EKS. 
+# ==========================================================================================
+# SECURITY GROUP RULE: PLATFORM LOAD BALANCER -> EKS NODES
+# ------------------------------------------------------------------------------------------
+# This rule permits the shared "platform" Application Load Balancer (ALB) to communicate 
+# directly with backend Pods running on EKS worker nodes.
+# ==========================================================================================
+locals {
+  platform_ports = {
+    # ArgoCD (API/UI), Loki (Gateway/Nginx), and Tempo (Gateway)
+    "web-apps"   = 8080  
+    
+    # Grafana Dashboards UI
+    "grafana"    = 3000
+    
+    # Prometheus Server API and Query engine
+    "prometheus" = 9090
+    
+    # Grafana Alloy UI and internal health/readiness endpoints
+    "alloy"      = 12345
+  }
+}
+
+
 resource "aws_security_group_rule" "alb_to_nodes" {
+  for_each                 = local.platform_ports
+
   type                     = "ingress"
-  from_port                = 8080
-  to_port                  = 8080
+  from_port                = each.value
+  to_port                  = each.value
   protocol                 = "tcp"
-  description              = "Allow ArgoCD ALB to communicate with backend pods on port 8080"
+  description              = "Allow Platform ALB to reach ${each.key}"
   
   # The Target: The EKS-managed node security group (via remote state)
   security_group_id        = var.eks_nodes_security_group

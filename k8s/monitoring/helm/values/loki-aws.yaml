@@ -11,19 +11,24 @@ singleBinary:
 
 gateway:
   enabled: true
-  # --- INGRESS PATCHED FOR AWS ALB ---
   ingress:
     enabled: true
     ingressClassName: alb
     annotations:
-      kubernetes.io/ingress.class: "alb"
 
+      kubernetes.io/ingress.class: "alb"
       alb.ingress.kubernetes.io/scheme: internet-facing
       alb.ingress.kubernetes.io/target-type: ip
       alb.ingress.kubernetes.io/group.name: platform
       alb.ingress.kubernetes.io/wafv2-acl-arn: "${waf_arn}"
       alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
       alb.ingress.kubernetes.io/load-balancer-attributes: "idle_timeout.timeout_seconds=600"
+      
+      # --- AWS ALB HEALTH CHECK CONFIGURATION ---
+      # Loki gateway typically uses port 8080 for traffic and health checks
+      alb.ingress.kubernetes.io/healthcheck-port: '8080'
+      alb.ingress.kubernetes.io/healthcheck-path: /    # The gateway root returns 200 OK
+      alb.ingress.kubernetes.io/success-codes: '200'
 
     hosts:
       - host: "" 
@@ -32,22 +37,23 @@ gateway:
             pathType: Prefix
           - path: /loki/*
             pathType: Prefix
-    
 
-  # --- HEALTH CHECKS ---
+  # --- ALIGN PROBES WITH GATEWAY NGINX PORT ---
   startupProbe:
     httpGet:
       path: /
-      port: http-metrics
+      port: 8080  
     failureThreshold: 15
     periodSeconds: 10
   livenessProbe:
     httpGet:
       path: /
-      port: http-metrics
+      port: 8080
     periodSeconds: 15
   readinessProbe:
     httpGet:
       path: /
-      port: http-metrics
+      port: 8080
     periodSeconds: 10
+
+
