@@ -89,15 +89,12 @@ grafana:
 
     hosts:
       - ""
-    paths:
-      - /grafana
-    pathType: ImplementationSpecific 
+    path: /grafana
+    pathType: Prefix
     extraPaths: []
 
   grafana.ini:
     server:
       root_url: "%(protocol)s://%(domain)s:%(http_port)s/grafana/"
       serve_from_sub_path: true
-
-
 
