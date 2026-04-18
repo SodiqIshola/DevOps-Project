@@ -22,7 +22,6 @@ prometheus:
       - "" 
     paths: 
       - /prometheus
-      - /prometheus/*
 
   prometheusSpec:
     externalUrl: "/prometheus/"
@@ -91,15 +90,6 @@ grafana:
     hosts:
       - ""
     path: /grafana
-    # Some chart versions require 'extraPaths' for the wildcard
-    extraPaths:
-      - path: /grafana/*
-        pathType: Prefix
-        backend:
-          service:
-            name: kube-prometheus-stack-grafana
-            port:
-              number: 80
 
   grafana.ini:
     server:

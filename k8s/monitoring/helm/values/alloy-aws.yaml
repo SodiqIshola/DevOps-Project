@@ -22,16 +22,6 @@ ingress:
       paths:
         - path: /alloy
           pathType: Prefix
-  # Alloy chart uses extraPaths to add the specific ALB routing
-  extraPaths:
-    - path: /alloy/*
-      pathType: Prefix
-      backend:
-        service:
-          name: alloy
-          port:
-            number: 12345
-  
 
 alloy:
   extraArgs:
