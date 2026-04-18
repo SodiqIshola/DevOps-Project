@@ -207,7 +207,7 @@ ingress:
       paths:
         - /
 
-  pathType: Prefix               # Standard path matching for sub-pages
+  pathType: Prefix               
 
 
 
