@@ -35,8 +35,6 @@ gateway:
         paths:
           - path: /loki
             pathType: Prefix
-          - path: /loki/*
-            pathType: Prefix
 
   # --- ALIGN PROBES WITH GATEWAY NGINX PORT ---
   startupProbe:
