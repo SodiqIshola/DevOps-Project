@@ -89,8 +89,9 @@ grafana:
 
     hosts:
       - ""
-    path: /grafana
-    pathType: ImplementationSpecific
+    paths:
+      - /grafana
+    pathType: ImplementationSpecific 
     extraPaths: []
 
   grafana.ini:
