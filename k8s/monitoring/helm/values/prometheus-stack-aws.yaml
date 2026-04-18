@@ -84,13 +84,13 @@ grafana:
       # --- AWS ALB HEALTH CHECK ---
       # Grafana internal port is 3000
       alb.ingress.kubernetes.io/healthcheck-port: '3000'
-      alb.ingress.kubernetes.io/healthcheck-path: /grafana/api/health
+      alb.ingress.kubernetes.io/healthcheck-path: /api/health
       alb.ingress.kubernetes.io/success-codes: '200'
 
     hosts:
       - ""
     path: /grafana
-    pathType: Prefix
+    pathType: ImplementationSpecific
 
   grafana.ini:
     server:
