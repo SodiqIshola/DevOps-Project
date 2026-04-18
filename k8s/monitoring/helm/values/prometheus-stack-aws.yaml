@@ -20,11 +20,9 @@ prometheus:
 
     hosts:
       - "" 
-    paths: 
-      - /prometheus
 
   prometheusSpec:
-    externalUrl: "/prometheus/"
+    externalUrl: "/prometheus"
     routePrefix: /prometheus
 
     containers:
@@ -89,11 +87,9 @@ grafana:
 
     hosts:
       - ""
-    path: /grafana
 
   grafana.ini:
     server:
-      domain: "" # Set this to your LB DNS or leave as is if using relative paths
       root_url: "%(protocol)s://%(domain)s:%(http_port)s/grafana/"
       serve_from_sub_path: true
 

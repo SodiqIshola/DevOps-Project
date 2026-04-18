@@ -17,16 +17,15 @@ resource "helm_release" "argocd" {
   namespace  = var.namespace
 
   create_namespace = var.create_namespace
-  version    = "9.5.0"
-
+  version          = "9.5.0"
 
   values = [
     yamlencode({
-      global ={
-        image ={
+      global = {
+        image = {
           tag = "v3.3.6"
         }
-      } 
+      }
 
       server = {
         # Link the IAM Role to the ServiceAccount (IRSA)
@@ -36,6 +35,12 @@ resource "helm_release" "argocd" {
             "eks.amazonaws.com/role-arn" = aws_iam_role.argocd.arn
           }
         }
+
+        # Set rootpath and basehref for subpath hosting
+        extraArgs = [
+          "--rootpath=/argocd",
+          "--basehref=/argocd"
+        ]
 
         # disable the built-in ingress to stop the chart from forcing "://example.com"
         ingress = { enabled = false }
@@ -68,9 +73,8 @@ resource "kubernetes_ingress_v1" "argocd_manual" {
       "alb.ingress.kubernetes.io/inbound-cidrs"    = join(",", var.allowed_cidr)
       "alb.ingress.kubernetes.io/wafv2-acl-arn"    = var.waf_arn
       
-      # --- ADD THESE FOR HEALTH CHECKS ---
-      # ArgoCD returns a 200 on /healthz even when unauthenticated
-      "alb.ingress.kubernetes.io/healthcheck-path"             = "/healthz"
+      # Health check path MUST reflect the rootpath change
+      "alb.ingress.kubernetes.io/healthcheck-path"             = "/argocd/healthz"
       "alb.ingress.kubernetes.io/healthcheck-protocol"         = "HTTP"
       "alb.ingress.kubernetes.io/success-codes"                = "200-399"
       "alb.ingress.kubernetes.io/healthcheck-interval-seconds" = "15"
@@ -81,10 +85,10 @@ resource "kubernetes_ingress_v1" "argocd_manual" {
   spec {
     ingress_class_name = "alb"
     rule {
-      # Leaving 'host' undefined creates a '*' rule for the ALB DNS name
       http {
+        # Only handling the /argocd subpath now
         path {
-          path      = "/"
+          path      = "/argocd"
           path_type = "Prefix"
   
           backend {

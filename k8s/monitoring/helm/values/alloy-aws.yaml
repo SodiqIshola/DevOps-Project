@@ -20,13 +20,16 @@ ingress:
     alb.ingress.kubernetes.io/healthcheck-path: /-/ready
     alb.ingress.kubernetes.io/success-codes: '200'
 
-  hosts: []
+  hosts:
+  - ""
 
+  path: /alloy
   pathType: Prefix
 
 
 alloy:
   extraArgs:
+    - --server.http.ui-path-prefix=/alloy
     - --stability.level=generally-available
   
   # Ensure the service port matches what the Ingress expects (12345)

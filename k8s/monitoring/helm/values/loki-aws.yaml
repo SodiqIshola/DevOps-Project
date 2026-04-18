@@ -31,7 +31,7 @@ gateway:
       alb.ingress.kubernetes.io/success-codes: '200'
 
     hosts:
-      - host: "" 
+      - host: ""
         paths:
           - path: /loki
             pathType: Prefix
