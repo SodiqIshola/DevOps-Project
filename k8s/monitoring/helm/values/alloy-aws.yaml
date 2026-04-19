@@ -31,11 +31,6 @@ alloy:
     - --server.http.ui-path-prefix=/alloy
     - --stability.level=generally-available
   
-  # Ensure the service port matches what the Ingress expects (12345)
-  extraPorts:
-    - name: "metrics"
-      port: 12345
-      targetPort: 12345
-      protocol: "TCP"
+
 
   
