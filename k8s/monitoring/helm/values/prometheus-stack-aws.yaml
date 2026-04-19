@@ -93,6 +93,6 @@ grafana:
 
   grafana.ini:
     server:
-      root_url: "%(protocol)s://%(domain)s:%(http_port)s/grafana/"
+      root_url: "k8s-platform-cc9fa8d0f9-1023612367.ca-central-1.elb.amazonaws.com"
       serve_from_sub_path: true
 
