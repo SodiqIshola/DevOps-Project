@@ -197,7 +197,7 @@ resource "aws_security_group" "argocd" {
     description = "Allow all outbound traffic"
     from_port   = 0
     to_port     = 0
-    protocol    = "-1" # "-1" means all protocols (TCP, UDP, ICMP, etc.)
+    protocol    = "-1" 
     cidr_blocks = ["0.0.0.0/0"] # Required for ArgoCD to pull charts/images from the internet
   }
 
