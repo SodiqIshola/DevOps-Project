@@ -12,7 +12,6 @@ ingress:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/group.name: platform
-    alb.ingress.kubernetes.io/wafv2-acl-arn: "arn:aws:wafv2:ca-central-1:649999313359:regional/webacl/my-eks-cluster-waf-waf/6f58b0ad-ddbc-4f25-be99-77aab4f978d6"
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
 
     # Health check points to the Alloy UI port
