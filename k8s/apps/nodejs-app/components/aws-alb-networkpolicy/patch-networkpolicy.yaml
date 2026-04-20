@@ -1,0 +1,14 @@
+# k8s/components/aws-alb-networkpolicy/patch-networkpolicy.yaml
+- op: replace
+  path: /spec/ingress/0/from
+  value:
+    # 1. Allow traffic from the AWS Load Balancer Controller
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: aws-load-balancer-controller
+    # 2. Allow traffic from the VPC/Subnet (Necessary for ALB Health Checks)
+    - ipBlock:
+        cidr: 10.1.0.0/16

@@ -1,0 +1,35 @@
+# k8s/components/aws-alb-ingress/patch-alb.yaml
+- op: replace
+  path: /spec/ingressClassName
+  value: alb
+- op: replace
+  path: /metadata/annotations/kubernetes.io~1ingress.class
+  value: alb
+# Remove Traefik specific entrypoint
+- op: remove
+  path: /metadata/annotations/traefik.ingress.kubernetes.io~1router.entrypoints
+# Add ALB specific settings
+- op: add
+  path: /metadata/annotations/alb.ingress.kubernetes.io~1scheme
+  value: internet-facing
+
+# --- NEW ALB GROUPING & PROTOCOL ---
+- op: add
+  path: /metadata/annotations/alb.ingress.kubernetes.io~1group.name
+  value: platform
+- op: add
+  path: /metadata/annotations/alb.ingress.kubernetes.io~1backend-protocol
+  value: HTTP
+
+# --- HEALTH CHECK CONFIGURATION ---
+- op: add
+  path: /metadata/annotations/alb.ingress.kubernetes.io~1healthcheck-path
+  value: /ready
+- op: add
+  path: /metadata/annotations/alb.ingress.kubernetes.io~1success-codes
+  value: "200"
+
+# Remove the specific host (makes it match any host / IP)
+- op: remove
+  path: /spec/rules/0/host
+

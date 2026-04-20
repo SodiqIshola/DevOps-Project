@@ -1,0 +1,60 @@
+
+# Multi-Environment EKS & GitOps Infrastructure
+
+![Kubernetes](https://shields.io)
+![ArgoCD](https://shields.io)
+![Grafana](https://shields.io)
+
+## Overview
+This repository manages a production-grade EKS environment using Terraform and ArgoCD. It utilizes a **layered deployment strategy** to separate base infrastructure from platform services and centralized observability.
+
+### Telemetry Pipeline (Alloy)
+We utilize a unified **Grafana Alloy** DaemonSet to process all telemetry:
+*   **Traces**: Received via OpenTelemetry (OTEL) → Processed by Alloy → Sent to **Tempo**.
+*   **Metrics**: Scraped by Alloy → Sent to **Prometheus**.
+*   **Logs**: Collected from `/var/log/pods` → Processed by Alloy → Sent to **Loki**.
+*   **Advanced**: **Span Metrics** and **Service Graphs** are enabled in Tempo to provide deep visibility into microservice dependencies.
+
+---
+
+## Deployment Sequence (Step-by-Step)
+To ensure dependencies are met, follow this exact sequence for a fresh deployment:
+
+### Step 1: Base Infrastructure (`eks-infra`)
+Provision the core AWS resources.
+*   **Action**: `cd environments/eks-infra && terraform apply`
+*   **Result**: VPC, Subnets, and EKS Cluster are created. IAM OIDC provider is established.
+
+### Step 2: Platform Services (`platform`)
+Install the "Day-2" operations controllers.
+*   **Action**: `cd environments/platform && terraform apply`
+*   **Result**: Installs ArgoCD and the AWS Load Balancer Controller. This prepares the cluster to receive external traffic and GitOps instructions.
+
+### Step 3: Observability Stack (`central-monitoring`)
+Deploy the unified monitoring engine.
+*   **Action**: `cd environments/central-monitoring && terraform apply`
+*   **Result**: Deploys Loki, Prometheus, and Tempo. This step also installs the **Alloy DaemonSet**, which immediately begins shipping node telemetry to the monitoring backend.
+
+### Step 4: Business Applications (`application`)
+Automate the deployment of your microservices.
+*   **Action**: `cd environments/application && terraform apply`
+*   **Result**: Deploys the **ArgoCD ApplicationSets**. ArgoCD will now automatically discover your `nodejs-app` and `java-app` from Git and deploy them to the `development` and `production` namespaces.
+
+---
+
+## Security & Scalability
+*   **RBAC**: Environments are mapped to specific ArgoCD Projects to enforce strict permission boundaries.
+*   **Persistence**: Monitoring data (Loki/Tempo) is backed by S3/EBS to prevent data loss and ensure long-term retention.
+*   **Centralized**: Monitoring is managed as a single global entity to provide a "Single Pane of Glass" view across all environments.
+
+---
+
+## Repository Structure
+```text
+.
+├── environments/
+│   ├── eks-infra/           # VPC, Cluster, IAM
+│   ├── platform/            # ArgoCD, ALB Controller
+│   ├── central-monitoring/  # LGTM Stack & Alloy
+│   └── application/         # AppSets for Dev/Prod
+└── modules/                 # Reusable Terraform logic
