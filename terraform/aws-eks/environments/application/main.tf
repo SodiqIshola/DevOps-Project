@@ -23,13 +23,20 @@ resource "kubernetes_manifest" "prod_project" {
   manifest = yamldecode(file("${var.appset_dir}/prod-apps-project.yaml"))
 }
 
+
 # Deploy ApplicationSet (The Matrix Generator File)
 # The 'depends_on' ensures projects exist before automation tries to use them.
-resource "kubernetes_manifest" "nodejs_appset" {
+resource "kubectl_manifest" "nodejs_appset" {
+  yaml_body = file("${var.appset_dir}/applicationset-root.yaml")
+
+  # Set to false to prevent Terraform from waiting for the ApplicationSet 
+  # to fully reconcile/sync before finishing the apply. This avoids 
+  # timeouts with complex ArgoCD Matrix generators.
+  wait_for_rollout = false
+
   depends_on = [
     kubernetes_manifest.dev_project,
     kubernetes_manifest.prod_project
   ]
-  manifest = yamldecode(file("${var.appset_dir}/applicationset-root.yaml"))
 }
 

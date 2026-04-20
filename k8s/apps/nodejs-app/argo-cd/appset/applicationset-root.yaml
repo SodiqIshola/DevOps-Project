@@ -5,92 +5,80 @@ metadata:
   name: nodejs-app-appset
   namespace: argocd
 spec:
-  # ============================================================================
-  # GO TEMPLATE SUPPORT
-  # ============================================================================
-  # Enables advanced templating ({{ }}) to dynamically inject variables from 
-  # the generators into the Application definitions below.
-  # ============================================================================
+  # Enables Go templating for advanced logic, loops, and conditional sync policies
   goTemplate: true
 
   # ============================================================================
-  # GENERATORS SECTION
+  # GENERATORS (The Merge Logic)
   # ============================================================================
-  # This section defines the "Discovery" logic. It tells ArgoCD where to look 
-  # for code and what metadata (namespaces, projects) to associate with each 
-  # environment. The Matrix generator merges Git folders with our custom list.
+  # We use a MERGE generator to join two data sources into a single result.
+  # This acts like a SQL "JOIN" to ensure the 'dev' folder ONLY goes to the 
+  # 'dev' environment, preventing the duplicate name errors found in Matrix.
   # ============================================================================
   generators:
-    - matrix:
+    - merge:
+        mergeKeys:
+          - envName 
         generators:
-          # Scans the Git repository for environment-specific overlay folders
+          # Source 1: The Filesystem
+          # Scans the Git repo for environment folders (dev, prod, etc.)
           - git:
               repoURL: https://github.com/SodiqIshola/DevOps-Project
               revision: main
               directories:
                 - path: k8s/apps/nodejs-app/platform/aws/*
-          
-          # Defines a configuration map to link folder names to specific K8s settings
+
+              template:
+                # Extracts the folder name (e.g., "dev") to use as the merge key
+                envName: '{{index .path "basename"}}'
+
+          # Source 2: The Environment Metadata
+          # Defines the specific K8s settings for each environment
           - list:
               elements:
-              # NOTE: 'envName' must match the folder name in your Git path exactly
                 - envName: dev
                   project: dev-apps-project
                   namespace: dev-namespace
-                  autoSync: true 
+                  autoSync: true # Enables auto-deploy for rapid dev iteration
+
                 - envName: prod
                   project: prod-apps-project
                   namespace: prod-namespace
-                  autoSync: false
-        
-        # This matches the folder name (path.basename) to the list entry (envName)
-        selector:
-          matchLabels:
-            envName: "{{path.basename}}"
+                  autoSync: false # Forces manual approval for production safety
 
   # ============================================================================
-  # TEMPLATE SECTION
+  # TEMPLATE (The Blueprint)
   # ============================================================================
-  # This section is responsible for the automation of child applications. 
-  # It acts as a blueprint: for every environment identified by the generators, 
-  # this section generates a corresponding ArgoCD Application resource.
+  # This section defines the final ArgoCD Application resource. 
+  # Variables are injected from the Merged generator data above.
   # ============================================================================
   template:
     metadata:
-      # Creates unique app names like: nodejs-app-development
-      name: nodejs-app-{{path.basename}}
+      # Creates unique names like nodejs-app-dev and nodejs-app-prod
+      name: 'nodejs-app-{{.envName}}'
       labels:
-        env: "{{envName}}"
+        env: '{{.envName}}'
         managed-by: argocd
     spec:
-      # Uses the 'project' variable from the lookup table for RBAC security
-      project: "{{project}}"
-      
+      project: '{{.project}}'
       source:
-        repoURL: https://github.com
+        repoURL: https://github.com/SodiqIshola/DevOps-Project
         targetRevision: main
-        path: "{{path}}"
-      
+        path: '{{.path.path}}' # Points to the specific sub-folder in Git
+
       destination:
-        server: https://default.svc
-        # Routes the deployment to the specific environment namespace
-        namespace: "{{namespace}}"
-      
+        server: https://kubernetes.default.svc
+        namespace: '{{.namespace}}'
+
       syncPolicy:
         syncOptions:
           - CreateNamespace=true
-        retry:
-          limit: 5
-          backoff:
-            duration: 5s
-            factor: 2
-            maxDuration: 3m
 
   # ============================================================================
-  # DYNAMIC SYNC OVERRIDE
+  # TEMPLATE PATCH (Environment Overrides)
   # ============================================================================
-  # This patch applies automated sync (Prune/Self-Heal) only to environments 
-  # where 'autoSync' is set to true in the generator list (e.g., Development).
+  # Dynamically adds automated sync ONLY if 'autoSync' was set to true in 
+  # the list generator. This keeps the Dev environment hands-free.
   # ============================================================================
   templatePatch: |
     {{- if .autoSync }}
@@ -100,5 +88,3 @@ spec:
           prune: true
           selfHeal: true
     {{- end }}
-
-        

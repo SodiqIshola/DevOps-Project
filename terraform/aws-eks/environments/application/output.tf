@@ -2,9 +2,9 @@
 # ============================================================================
 # OUTPUTS
 # ============================================================================
-output "appset_name" {
-  value = kubernetes_manifest.nodejs_appset.manifest.metadata.name
-}
+# output "appset_name" {
+#   value = kubernetes_manifest.nodejs_appset.manifest.metadata.name
+# }
 
 output "deployed_projects" {
   value = [

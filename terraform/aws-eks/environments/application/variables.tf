@@ -1,7 +1,7 @@
 variable "appset_dir" {
   description = "Path to the directory containing ArgoCD manifests"
   type        = string
-  default     = "./k8s/apps/nodejs-app/argo-cd/appset"
+  default     = "../../../../k8s/apps/nodejs-app/argo-cd/appset"
 }
 
 variable "aws_region" {
