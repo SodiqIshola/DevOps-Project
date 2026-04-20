@@ -245,7 +245,8 @@ resource "aws_eks_node_group" "this" {
     aws_iam_role_policy_attachment.worker_node_policy,
     aws_iam_role_policy_attachment.cni_policy,
     aws_iam_role_policy_attachment.ecr_policy,
-    aws_eks_addon.vpc_cni # Ensure the CNI is ready before nodes join
+    aws_iam_role_policy_attachment.ssm_policy,
+    aws_eks_addon.vpc_cni
   ]
 
   tags = var.eks_node_group_tags
