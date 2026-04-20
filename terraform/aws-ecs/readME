@@ -1,192 +1,79 @@
+# AWS ECS Fargate Infrastructure with ADOT & WAF
 
+![ECS](https://shields.io)
+![WAF](https://shields.io)
+![OTEL](https://shields.io)
 
-# 🚀 AWS ECS Fargate Infrastructure Deployment
+## Overview
+This repository provisions a production-ready **ECS Fargate** cluster. It features a hardened **Application Load Balancer (ALB)** protected by **AWS WAF** and a robust observability stack using **AWS OTel Collector** for distributed tracing (X-Ray) and **CloudWatch Logs**.
 
-![Terraform](https://img.shields.io/badge/Terraform-IaC-purple)
-![AWS](https://img.shields.io/badge/AWS-ECS%20Fargate-orange)
-![Docker](https://img.shields.io/badge/Docker-Container-blue)
-![License](https://img.shields.io/badge/License-MIT-green)
+## Architecture Modules
 
-This project demonstrates a **production-style Infrastructure as Code (IaC) deployment** using **Terraform** to deploy a containerized application on **AWS ECS Fargate**.
+### Networking Module
+*   **VPC & Subnets**: Public subnets for the ALB and private subnets for ECS tasks.
+*   **Gateways**: NAT Gateways to allow Fargate tasks to pull images and send logs to CloudWatch safely.
 
-The infrastructure includes:
+### ALB & Security Module
+*   **AWS WAF**: Integrated Web Application Firewall protecting the ALB from common web exploits (SQLi, XSS).
+*   **Security Groups**: Fine-grained ingress rules restricted to specified CIDR blocks.
 
-* 🌐 Custom **VPC networking**
-* ⚖️ **Application Load Balancer**
-* 🐋 **ECS Fargate container orchestration**
-* 📦 **Amazon ECR container registry**
-* 📊 **CloudWatch logging**
-* 🧠 **Multi-architecture container support**
-
-This repository showcases **modern DevOps and cloud-native infrastructure practices**.
-
----
-
-# 🏗️ System Architecture
-
-The infrastructure follows a **layered cloud architecture** separating networking, traffic management, and compute services.
-
-```
-                   🌍 Internet
-                        │
-                        ▼
-             ⚖️ Application Load Balancer
-                        │
-                        ▼
-                 🐋 ECS Fargate Service
-                        │
-                        ▼
-                🔒 Private Subnets
-                        │
-                        ▼
-              📊 CloudWatch Logging
-```
+### ECS Module (Fargate)
+*   **Task Definition**: Configured with a multi-container strategy.
+*   **Sidecar Pattern**: Includes the `aws-otel-collector` using the built-in configuration to stream traces and OTLP metrics.
+*   **Logging**: Centralized CloudWatch log groups for both application and OTEL telemetry.
 
 ---
 
-## 🌐 1. Networking Layer (`VPC Module`)
-
-The **network module** provisions the foundational AWS networking infrastructure.
-
-### Resources Created
-
-* **Amazon VPC**
-* **Public Subnets**
-* **Private Subnets**
-* **Internet Gateway**
-* **NAT Gateway**
-* **Route Tables**
-
-### Key Benefits
-
-* High availability across **multiple Availability Zones**
-* Secure isolation of application services
-* Controlled inbound and outbound traffic
-
----
-
-## ⚖️ 2. Traffic Layer (`Application Load Balancer`)
-
-The **ALB module** manages inbound traffic routing to ECS services.
-
-### Features
-
-* HTTP listener configuration
-* Target group routing
-* Health checks
-* Automatic load balancing
-
-### Traffic Flow
-
-```
-Client Request
-      │
-      ▼
-Application Load Balancer
-      │
-      ▼
-Target Group
-      │
-      ▼
-ECS Fargate Tasks
-```
-
----
-
-## 🐋 3. Compute Layer (`ECS Fargate`)
-
-The **ECS module** deploys containerized workloads using AWS Fargate.
-
-### Components
-
-* **ECS Cluster**
-* **Task Definitions**
-* **ECS Service**
-* **CloudWatch Logging**
-* **Optional Auto Scaling**
-
-### Benefits
-
-* No server management
-* Automatic scaling
-* Fully managed container runtime
-
----
-
-# 📁 Project Structure
-
-The repository follows a **modular Terraform architecture**.
-
-```
+## Repository Structure
+```text
 .
-├── modules
-│   ├── network
-│   │   ├── main.tf
-│   │   ├── variables.tf
-│   │   └── outputs.tf
-│   │
-│   ├── alb
-│   │   ├── main.tf
-│   │   ├── variables.tf
-│   │   └── outputs.tf
-│   │
-│   └── ecs
-│       ├── main.tf
-│       ├── variables.tf
-│       └── outputs.tf
-│
-├── provider.tf
-├── variables.tf
-├── terraform.tfvars
-├── scripts/push-image-to-ecr.sh
+├── modules/
+│   ├── network/      # VPC, Subnets, Route Tables
+│   ├── alb/          # ALB, Target Groups, Security Groups, WAF
+│   └── ecs/          # Cluster, Service, Task Definition, IAM Roles
+├── scripts/
+│   └── push-image-to-ecr.sh  # CI/CD helper for ECR deployments
+├── provider.tf       # AWS Provider & Backend config
+├── variables.tf      # Global variables
 └── README.md
-```
 
 ---
 
-# 📦 Terraform Modules
 
-| Module         | Description                                |
-| -------------- | ------------------------------------------ |
-| 🌐 **network** | Creates VPC, subnets, NAT gateway, routing |
-| ⚖️ **alb**     | Creates ALB, listeners, and target groups  |
-| 🐋 **ecs**     | Deploys ECS cluster, services, and tasks   |
+## Deployment Steps
 
----
 
-# 🛠️ Deployment Workflow
+### Configure AWS Credentials
 
-Follow these steps to deploy the infrastructure.
-
----
-
-# 1️⃣ Configure AWS Credentials
-
-Authenticate your AWS CLI.
+Authenticate your local machine with AWS:
 
 ```bash
 aws configure --profile my-terraform-profile
 ```
 
-You will be prompted for:
+Provide:
 
 * AWS Access Key
 * AWS Secret Key
-* Default Region
-* Output Format
+* Default region (e.g. `ca-central-1`)
+* Output format (default: `json`)
 
 ---
 
-# 2️⃣ Build and Push Docker Image
+### Build & Push Docker Image to ECR
 
-Before Terraform can deploy ECS tasks, the Docker image must be pushed to **Amazon ECR**.
+Before deploying infrastructure, your container image must exist in **Amazon ECR**.
 
-Update the following values in `push-image-to-ecr.sh`:
+### Update Script
 
-* `REPOSITORY_URI`
-* `REGION`
+Edit `push-image-to-ecr.sh`:
 
-Run the script:
+```bash
+REPOSITORY_URI=<your-ecr-repo-uri>
+REGION=<your-region>
+```
+
+### Run Script
 
 ```bash
 chmod +x push-image-to-ecr.sh
@@ -194,41 +81,40 @@ chmod +x push-image-to-ecr.sh
 ```
 
 ---
+### Multi-Platform Support
 
-## 🖥️ Multi-Platform Docker Build Support
-
-The script supports **multi-architecture container images**.
+This project supports multi-architecture builds:
 
 | Machine Type  | Architecture |
 | ------------- | ------------ |
 | Intel / AMD   | `X86_64`     |
 | Apple Silicon | `ARM64`      |
 
-Docker automatically pushes the correct architecture to ECR.
+Docker automatically builds and pushes the correct image.
 
 ---
 
-# 3️⃣ Initialize Terraform
+### Initialize Terraform
 
-Initialize Terraform providers and modules.
+Prepare Terraform:
 
 ```bash
 terraform init
 ```
 
-This command:
+This will:
 
-* Downloads provider plugins
-* Initializes modules
-* Prepares Terraform state
+* Download providers
+* Initialize modules
+* Set up backend state (if configured)
 
 ---
 
-# 4️⃣ Configure AWS Provider
+### Configure Terraform Variables
 
-Ensure your Terraform provider uses the configured AWS profile.
+### AWS Provider
 
-### `provider.tf`
+Ensure your provider uses the correct profile:
 
 ```hcl
 provider "aws" {
@@ -239,11 +125,9 @@ provider "aws" {
 
 ---
 
-# 5️⃣ Configure CPU Architecture
+### CPU Architecture
 
-Set the CPU architecture that matches the image pushed to ECR.
-
-### `variables.tf`
+Set the architecture to match your Docker image:
 
 ```hcl
 variable "cpu_architecture" {
@@ -251,119 +135,88 @@ variable "cpu_architecture" {
 }
 ```
 
-| System        | Value      |
-| ------------- | ---------- |
-| Intel / AMD   | `"X86_64"` |
-| Apple Silicon | `"ARM64"`  |
+| System        | Value    |
+| ------------- | -------- |
+| Intel / AMD   | `X86_64` |
+| Apple Silicon | `ARM64`  |
 
-This ensures **Fargate pulls the correct container image**.
 
 ---
 
-# 6️⃣ Deploy Infrastructure
+### Plan Infrastructure
 
-Preview the changes:
+Preview what Terraform will create:
 
 ```bash
-terraform plan -var-file="terraform.tfvars"
+terraform plan 
 ```
 
-Apply the infrastructure:
+---
+
+### Deploy Infrastructure
+
+Apply changes:
 
 ```bash
-terraform apply -var-file="terraform.tfvars" --auto-approve
+terraform apply --auto-approve
 ```
 
-Terraform will deploy:
+This will provision:
 
-* VPC networking
-* Load balancer
-* ECS cluster
-* Fargate service
-* CloudWatch logging
+* ECS Fargate Service
+* Load Balancer (ALB)
+* Networking (VPC, subnets, security groups)
+* IAM roles
 
-Once deployment finishes, Terraform outputs the **ALB DNS endpoint**.
 
 ---
 
-# 📊 Infrastructure Overview
+## 🧪 Troubleshooting
 
-| AWS Component   | Purpose                  |
-| --------------- | ------------------------ |
-| VPC             | Network isolation        |
-| Public Subnets  | Load balancer access     |
-| Private Subnets | Secure container runtime |
-| ALB             | Traffic distribution     |
-| ECS Fargate     | Serverless containers    |
-| CloudWatch      | Logging and monitoring   |
+### ❌ Image not found
+
+* Ensure ECR push completed successfully
+* Verify repository URI matches Terraform config
 
 ---
 
-# 🔐 Security Considerations
+### ❌ Wrong architecture error
 
-The architecture follows AWS security best practices:
-
-* Private subnets for ECS workloads
-* Controlled outbound internet access via NAT Gateway
-* ALB health checks
-* IAM authentication for AWS CLI access
+* Ensure `cpu_architecture` matches your Docker build
 
 ---
 
-# 🧹 Destroy Infrastructure
+### ❌ Service not reachable
 
-To avoid AWS charges, destroy the environment when finished.
+* Check:
 
-```bash
-terraform destroy -var-file="terraform.tfvars" --auto-approve
-```
-
-This removes all Terraform-managed resources.
+  * Security groups
+  * ALB target group health
+  * ECS task logs (CloudWatch)
 
 ---
 
-# ⭐ DevOps Features
 
-This project demonstrates several important DevOps practices:
+## ✅ Summary
 
-* Infrastructure as Code (**Terraform**)
-* Container orchestration (**ECS Fargate**)
-* Modular infrastructure design
-* Multi-architecture container builds
-* Cloud-native logging and monitoring
-* Highly available networking architecture
+Deployment flow:
 
----
+1. Configure AWS credentials
+2. Build & push Docker image to ECR
+3. Initialize Terraform
+4. Configure variables
+5. Plan
+6. Apply
+7. Verify
 
-# 📚 Useful AWS Documentation
 
-* [https://docs.aws.amazon.com/ecs](https://docs.aws.amazon.com/ecs)
-* [https://docs.aws.amazon.com/vpc](https://docs.aws.amazon.com/vpc)
-* [https://docs.aws.amazon.com/elasticloadbalancing](https://docs.aws.amazon.com/elasticloadbalancing)
 
----
 
-# 💡 Future Improvements
 
-Potential enhancements for this project:
 
-* CI/CD pipeline with **GitHub Actions**
-* **Terraform remote state (S3 + DynamoDB)**
-* **Monitoring stack (Prometheus + Grafana)**
-* **Security scanning with Trivy**
-* **AWS WAF for ALB protection**
 
----
 
-✅ When uploaded to GitHub, this README will render with:
 
-* Clean section headers
-* Professional architecture layout
-* Easy navigation
-* Clear DevOps workflow
 
----
 
-If you'd like, I can also show you **one more trick that makes GitHub READMEs look extremely professional for DevOps portfolios**:
 
-Adding a **visual AWS architecture diagram (like real AWS icons)** instead of ASCII diagrams — the kind used in **AWS Solutions Architect documentation**.

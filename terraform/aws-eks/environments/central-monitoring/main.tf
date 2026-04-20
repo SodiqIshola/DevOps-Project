@@ -40,12 +40,6 @@ resource "kubernetes_manifest" "root_app" {
         # POINT TO THE OVERLAY ROOT
         path = "k8s/monitoring/argo-cd/overlays/aws" 
 
-        # This acts as a 'patch on top of the patch'
-        kustomize = {
-          commonAnnotations = {
-            "alb.ingress.kubernetes.io/wafv2-acl-arn" = data.terraform_remote_state.infra.outputs.waf_arn
-          }
-        }
       }
       destination = {
         server    = "https://kubernetes.default.svc"

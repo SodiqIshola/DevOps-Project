@@ -1,0 +1,9 @@
+# k8s/components/aws-alb-networkpolicy/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+patches:
+  - path: patch-networkpolicy.yaml
+    target:
+      kind: NetworkPolicy
+

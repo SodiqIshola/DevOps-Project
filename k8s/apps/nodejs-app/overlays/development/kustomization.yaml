@@ -1,3 +1,6 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
 resources:
   - ../../base
 
@@ -7,14 +10,12 @@ namespace: dev-namespace
 # Transforms metadata.name of all resources by adding a '-dev' suffix to ensure unique naming within the cluster.
 nameSuffix: -dev
 
-# Global labels injected into metadata and spec selectors for environment isolation and Grafana observability.
-# as well as Deployment selectors and Pod templates.
+# Injects environment tags for isolation and filtering.
 labels:
   - pairs:
       environment: development
-    includeSelectors: false # Prevents breaking the Base's functional logic
-    includeTemplates: true  # Ensures Pods are labeled for filtering/logs
-
+    includeSelectors: false # false keeps existing Base selectors intact to prevent Pod mismatch.
+    includeTemplates: true  # true ensures Pods carry labels for log/metric aggregation.
 
 # Environment-specific overrides for the development 
 patches:

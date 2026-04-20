@@ -22,7 +22,7 @@ spec:
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 30
       containers:
-      - name: node-app
+      - name: node-app-container
         image: sunky24/node-task-app:1.3.0
         imagePullPolicy: Always
         ports:

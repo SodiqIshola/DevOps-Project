@@ -1,9 +1,9 @@
-# 🚀 Node.js Observability & Security Stack
+# Node.js Observability & Security Stack
 
 This project implements a professional **CI/CD and Observability pipeline**. It integrates **Continuous Security (Snyk)**, **Code Quality (SonarQube)**, and the full **LGTM Stack** (Loki, Grafana, Prometheus) for deep application visibility.
 
 
-## 🚀 Key Features
+## Key Features
 
 *   **Advanced Observability**: Integrated with Prometheus (`/metrics`) and OpenTelemetry (Traces).
 *   **Structured Logging**: Winston-powered logs categorized by environment and severity.
@@ -13,7 +13,7 @@ This project implements a professional **CI/CD and Observability pipeline**. It 
 
 ---
 
-## 🛠️ Environment Configuration
+## Environment Configuration
 
 The app uses a dynamic loading system. It defaults to **development** if no variable is provided.
 
@@ -21,7 +21,7 @@ The app uses a dynamic loading system. It defaults to **development** if no vari
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
 ### 1. Application & Logging (`Node.js`)
 *   **Node.js Framework:** A modular service designed for high-performance task processing.
@@ -75,7 +75,7 @@ Benefits include:
 
 ---
 
-## 📊 Visualization & Automation
+## Visualization & Automation
 
 ### Grafana Provisioning
 The stack uses **[Grafana Provisioning](https://grafana.com)** to automate the setup:
@@ -84,7 +84,7 @@ The stack uses **[Grafana Provisioning](https://grafana.com)** to automate the s
 
 ---
 
-## 🚦 Deployment Workflow
+## Deployment Workflow
 
 ### 1. Build & Security Scan
 The environment is orchestrated using Docker Compose, ensuring a "one-command" setup. The Dockerfile executes a security scan during the build phase. While not standard for production speed, it ensures no image is pushed to `sunky24/node-task-app:latest` without a full vulnerability report.
@@ -118,7 +118,7 @@ This stack implements the **three pillars of observability**.
 
 ---
 
-## 🚦 Deployment & Usage
+## Deployment & Usage
 
 ### Core CLI Commands
 

@@ -1,7 +1,8 @@
+
+
 terraform {
-  # 1. TERRAFORM VERSION
-  # Using the stable version you identified
-  required_version = ">= 1.14.8"
+  # TERRAFORM VERSION
+  required_version = ">= 1.14.6"
 
   required_providers {
     # Latest AWS Provider (Major v6.x)
@@ -43,22 +44,29 @@ provider "aws" {
   }
 }
 
+
 # --- KUBERNETES & HELM AUTHENTICATION ---
-# These data sources ensure you have a fresh token to manage cluster resources
-data "aws_eks_cluster_auth" "this" {
-  name = module.eks.cluster_name
+# This data source ensures you have a fresh token using the name from your cluster resource
+data "aws_eks_cluster" "this" {
+  name = data.terraform_remote_state.infra.outputs.cluster_name
 }
 
+data "aws_eks_cluster_auth" "this" {
+  name = data.terraform_remote_state.infra.outputs.cluster_name
+}
+
+# --- KUBERNETES PROVIDER ---
 provider "kubernetes" {
-  host                   = module.eks.cluster_endpoint
-  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+  host                   = data.aws_eks_cluster.this.endpoint
+  cluster_ca_certificate = base64decode(data.aws_eks_cluster.this.certificate_authority[0].data)
   token                  = data.aws_eks_cluster_auth.this.token
 }
 
+# --- HELM PROVIDER ---
 provider "helm" {
   kubernetes = {
-    host                   = module.eks.cluster_endpoint
-    cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+    host                   = data.aws_eks_cluster.this.endpoint
+    cluster_ca_certificate = base64decode(data.aws_eks_cluster.this.certificate_authority[0].data)
     token                  = data.aws_eks_cluster_auth.this.token
   }
 }
@@ -66,43 +74,3 @@ provider "helm" {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-# --- provider.tf ---
-
-terraform {
-  # 1. VERSION PINNING (Crucial for team stability)
-  required_version = ">= 1.14.0"
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0" # Allows minor updates but prevents breaking changes
-    }
-  }
-}
-
-# 3. AWS PROVIDER CONFIGURATION
-provider "aws" {
-  region  = var.aws_region
-  profile = "tf-project"
-
-  # Optional: Automatically tags every resource created by this provider
-  default_tags {
-    tags = {
-      Environment = "Development"
-      Project     = "Node-Fargate-OTel"
-      ManagedBy   = "Terraform"
-    }
-  }
-}
