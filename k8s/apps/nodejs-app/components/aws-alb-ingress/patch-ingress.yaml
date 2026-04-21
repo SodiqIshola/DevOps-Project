@@ -13,6 +13,10 @@
   path: /metadata/annotations/alb.ingress.kubernetes.io~1scheme
   value: internet-facing
 
+- op: add
+  path: /metadata/annotations/alb.ingress.kubernetes.io~1target-type
+  value: ip
+  
 # --- NEW ALB GROUPING & PROTOCOL ---
 - op: add
   path: /metadata/annotations/alb.ingress.kubernetes.io~1group.name
