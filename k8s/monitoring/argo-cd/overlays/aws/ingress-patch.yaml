@@ -81,7 +81,7 @@ spec:
       targetRevision: 0.147.0
       helm:
         valueFiles:
-          - $config/k8s/monitoring/helm/values/otel-collector.yaml
+          - $config/k8s/monitoring/helm/values/otel.yaml
           - $config/k8s/monitoring/helm/values/otel-aws.yaml
 
     - repoURL: https://github.com/SodiqIshola/DevOps-Project 
