@@ -22,7 +22,6 @@ patches:
   - path: deployment-patch.yaml
   - path: hpa-patch.yaml
   - path: ingress-patch.yaml 
-  - path: service-patch.yaml 
   - path: servicemonitor-patch.yaml
     # Explicitly matches the ServiceMonitor by kind and name for precise patching
     target:
