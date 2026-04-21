@@ -32,15 +32,10 @@ patches:
               "UrlRewriteConfig": {
                 "Rewrites": [
                   {
-                    "Regex": "^/node-app-dev$",
-                    "Replace": "/"
-                  },
-                  {
-                    "Regex": "^/node-app-dev/(.*)$",
-                    "Replace": "/$1"
+                    "Regex": "^/node-app-dev/?(.*)$",
+                    "Replace": "/${1}"
                   }
                 ]
               }
             }
           ]
-
