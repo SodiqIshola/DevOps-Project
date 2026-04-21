@@ -26,13 +26,19 @@ patches:
       - op: add
         path: /metadata/annotations/alb.ingress.kubernetes.io~1transforms.default
         value: |
+
           {
             "Type": "url-rewrite",
             "UrlRewriteConfig": {
               "Rewrites": [
-                { "Regex": "^/node-app-dev/?(.*)$", "Replace": "/$1" }
+                { 
+                  "Regex": "^/node-app-dev/?(.*)$", 
+                  "Replace": "/${1}" 
+                }
               ]
             }
           }
+
+
 
           
