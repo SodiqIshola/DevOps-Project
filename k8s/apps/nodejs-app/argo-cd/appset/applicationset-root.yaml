@@ -1,90 +1,67 @@
-
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
   name: nodejs-app-appset
   namespace: argocd
+
 spec:
-  # Enables Go templating for advanced logic, loops, and conditional sync policies
   goTemplate: true
 
-  # ============================================================================
-  # GENERATORS (The Merge Logic)
-  # ============================================================================
-  # We use a MERGE generator to join two data sources into a single result.
-  # This acts like a SQL "JOIN" to ensure the 'dev' folder ONLY goes to the 
-  # 'dev' environment, preventing the duplicate name errors found in Matrix.
-  # ============================================================================
   generators:
-    - merge:
-        mergeKeys:
-          - envName 
-        generators:
-          # Source 1: The Filesystem
-          # Scans the Git repo for environment folders (dev, prod, etc.)
-          - git:
-              repoURL: https://github.com/SodiqIshola/DevOps-Project
-              revision: main
-              directories:
-                - path: k8s/apps/nodejs-app/platform/aws/*
 
-              template:
-                # Extracts the folder name (e.g., "dev") to use as the merge key
-                envName: '{{index .path "basename"}}'
+    # DEV (auto sync)
+    - git:
+        repoURL: https://github.com/SodiqIshola/DevOps-Project
+        revision: main
+        directories:
+          - path: k8s/apps/nodejs-app/platform/aws/dev
 
-          # Source 2: The Environment Metadata
-          # Defines the specific K8s settings for each environment
-          - list:
-              elements:
-                - envName: dev
-                  project: dev-apps-project
-                  namespace: dev-namespace
-                  autoSync: true # Enables auto-deploy for rapid dev iteration
+    # PROD (manual)
+    - git:
+        repoURL: https://github.com/SodiqIshola/DevOps-Project
+        revision: main
+        directories:
+          - path: k8s/apps/nodejs-app/platform/aws/prod
 
-                - envName: prod
-                  project: prod-apps-project
-                  namespace: prod-namespace
-                  autoSync: false # Forces manual approval for production safety
-
-  # ============================================================================
-  # TEMPLATE (The Blueprint)
-  # ============================================================================
-  # This section defines the final ArgoCD Application resource. 
-  # Variables are injected from the Merged generator data above.
-  # ============================================================================
   template:
     metadata:
-      # Creates unique names like nodejs-app-dev and nodejs-app-prod
-      name: 'nodejs-app-{{.envName}}'
+      name: nodejs-app-{{.path.basename}}
       labels:
-        env: '{{.envName}}'
-        managed-by: argocd
+        env: "{{.path.basename}}"
+
     spec:
-      project: '{{.project}}'
+      project: "{{.path.basename}}-apps-project"
+
       source:
         repoURL: https://github.com/SodiqIshola/DevOps-Project
         targetRevision: main
-        path: '{{.path.path}}' # Points to the specific sub-folder in Git
+        path: "{{.path.path}}"
 
       destination:
         server: https://kubernetes.default.svc
-        namespace: '{{.namespace}}'
+        namespace: "{{.path.basename}}-namespace"
 
       syncPolicy:
         syncOptions:
           - CreateNamespace=true
 
-  # ============================================================================
-  # TEMPLATE PATCH (Environment Overrides)
-  # ============================================================================
-  # Dynamically adds automated sync ONLY if 'autoSync' was set to true in 
-  # the list generator. This keeps the Dev environment hands-free.
-  # ============================================================================
   templatePatch: |
-    {{- if .autoSync }}
+    {{- if eq .path.basename "dev" }}
     spec:
       syncPolicy:
         automated:
           prune: true
           selfHeal: true
     {{- end }}
+
+  syncPolicy:
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+
+
+
