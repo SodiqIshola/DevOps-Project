@@ -24,23 +24,23 @@ patches:
       name: node-app-ingress
     patch: |-
       - op: add
-        path: /metadata/annotations/alb.ingress.kubernetes.io~1transforms.default
+        path: /metadata/annotations/alb.ingress.kubernetes.io~1transforms.node-app-service-dev
         value: >
-          {
-            "Type": "url-rewrite",
-            "UrlRewriteConfig": {
-              "Rewrites": [
-                {
-                  "Regex": "^/node-app-dev$",
-                  "Replace": "/"
-                },
-                {
-                  "Regex": "^/node-app-dev/(.*)$",
-                  "Replace": "/$1"
-                }
-              ]
+          [
+            {
+              "Type": "url-rewrite",
+              "UrlRewriteConfig": {
+                "Rewrites": [
+                  {
+                    "Regex": "^/node-app-dev$",
+                    "Replace": "/"
+                  },
+                  {
+                    "Regex": "^/node-app-dev/(.*)$",
+                    "Replace": "/$1"
+                  }
+                ]
+              }
             }
-          }
-    
-
+          ]
 
