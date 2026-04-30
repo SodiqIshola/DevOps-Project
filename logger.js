@@ -21,8 +21,6 @@ const logger = winston.createLogger({
     new winston.transports.Console(),
     // FILE: For Promtail to "tail" and ship to Loki
     new winston.transports.File({ 
-      // FIX: Use process.cwd() instead of __dirname to target /app/logs
-      // This prevents the 'EACCES' error inside the 'dist' folder
       filename: path.join(process.cwd(), 'logs', 'app.log') 
     })
   ],

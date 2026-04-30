@@ -1,288 +1,163 @@
-
+# =========================
+# Node Application
+# =========================
 services:
 
-  # ==========================================
-  # DEVELOPMENT SERVICE (Local Coding)
-  # ==========================================
   node-app:
     image: sunky24/node-task-app:latest
     container_name: node-app
-    command: npm run dev          # Overrides Dockerfile to use nodemon
+    command: npm run dev
     environment:
       - NODE_ENV=development
-      # Tells the Node process exactly which zone to use
-      - TZ=America/Toronto 
-      # Tell the OTel SDK where to send TRACES (Jaeger or tempo)
+      - TZ=America/Toronto
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces
-      # Name your service so it shows up correctly in Jaeger/Tempo/CloudWatch
       - OTEL_SERVICE_NAME=node-task-app
-
-      # --- EMF SDK Config: Matches the OTel Collector Exporter --- 
-      # Sets the 'ServiceName' inside the JSON body; CloudWatch uses this as a Metric Dimension
-      - AWS_EMF_SERVICE_NAME=node-task-app           
-      # CRITICAL: Must match 'log_group_name' in your OTel 'awscloudwatchlogs' exporter 
-      - AWS_EMF_LOG_GROUP_NAME=node-task-app   
-      # Sets the 'ServiceType' metadata; useful for filtering "Frontend" vs "Backend" in metrics
-      - AWS_EMF_SERVICE_TYPE=Backend               
-      
-      # --- Deployment Mode ---     
-      # 'Agent' tells the app to send data to the OTel Collector via TCP/UDP
-      # 'Local' would only print the data to the Docker console (stdout)
-      - AWS_EMF_ENVIRONMENT=Local 
-
+      - AWS_EMF_SERVICE_NAME=node-task-app
+      - AWS_EMF_LOG_GROUP_NAME=node-task-app
+      - AWS_EMF_SERVICE_TYPE=Backend
+      - AWS_EMF_ENVIRONMENT=Local
     ports:
       - "3000:3000"
     restart: unless-stopped
     volumes:
-      # Maps your local Windows folder onto the container's /usr/src/app.
-      # This "masks" the code inside the image with your live code so you can run and 
-      # test changes instantly without rebuilding the image every time.
       - .:/usr/src/app
-
-      # This tells Docker to use the 'node_modules' already 
-      # installed inside the container image. It prevents your local Windows/Mac 
-      # modules from overwriting the Linux-compatible ones in the container.
       - /usr/src/app/node_modules
-    # Map a local folder to the app's internal logs folder
       - ./app-logs:/app/logs
-    # Ensure it always checks for a newer version on Docker Hub
-    # disable this when you using a local docker image due to login issue
     pull_policy: always
     networks:
       - monitoring
 
-  # =========================
-  # Prometheus
-  # =========================
-  # Metrics Database: Prometheus (v3.9.1 is the modern 'Next-Gen' version)
+# =========================
+# Prometheus - Metrics Database
+# =========================
   prometheus:
-    # Use the official Prometheus image (v3 is faster and uses less memory)
     image: prom/prometheus:v3.9.1
-    # Fixed name so Jaeger and the OTel Collector can find it at http://prometheus:9090
-    container_name: prometheus   
-    volumes:  
-      # Maps the ENTIRE local folder. This is CRITICAL so Prometheus can "see" your 'alerts.yml'
-      # file sitting in the same directory into the container as Read-Only (:ro)
+    container_name: prometheus
+    volumes:
       - ./infra/prometheus/:/etc/prometheus/:ro
-      # Maps the named volume 'prometheus_data' to the internal /prometheus folder.
-      # This ensures your history (the traces and metrics data) isn't deleted on restart.
-      - prometheus_data:/prometheus   
+      - prometheus_data:/prometheus
     ports:
-      # Host Port 9090 maps to Container Port 9090.
-      # You can visit the Prometheus dashboard at http://localhost:9090
-      - "9090:9090" 
+      - "9090:9090"
     command:
-      # Tells the Prometheus software exactly where its configuration file is located.
       - "--config.file=/etc/prometheus/prometheus.yml"
-      # Tells Prometheus to save its database files in the persistent folder we mapped above.
       - "--storage.tsdb.path=/prometheus"
-      # Required for Tempo: allows Prometheus to receive "pushed" service graph metrics via remote_write
       - "--web.enable-remote-write-receiver"
-    # --- ADDED HEALTHCHECK ---
-    # This lets Docker know if the Prometheus "brain" is actually awake and working.
     healthcheck:
-      # 'wget' checks the internal /-/healthy page. If it gets a '200 OK', it's healthy.
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
-      interval: 10s    # Re-check the health every 10 seconds.
-      timeout: 5s      # If Prometheus takes longer than 5s to answer, the check fails.
-      retries: 3       # Mark as "Unhealthy" only after 3 failed checks in a row.
-      start_period: 5s # Give the database 5s to load its index before starting checks.  
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
     networks:
-      # Connects to the 'monitoring' network so it can scrape Jaeger and the Collector.
-      - monitoring   
-    # Automatically restarts Prometheus if the server reboots or the process crashes.
+      - monitoring
     restart: unless-stopped
 
-
-  # =========================
-  # NODE-EXPORTER: The Hardware Sensor
-  # =========================
-  # Translates low-level Linux system data (CPU, RAM, Disk) 
-  # into a format that Prometheus can understand.
+# =========================
+# Node Exporter - System Metrics
+# =========================
   node-exporter:
-    # Pulls the tool used to "export" Linux system/hardware stats
     image: prom/node-exporter:v1.10.2
     container_name: node-exporter
-    # Ensures the monitor starts automatically if the computer reboots
     restart: unless-stopped
     ports:
       - "9100:9100"
     volumes:
-      # These 3 lines allow the container to "look out" at the host machine's hardware
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /:/rootfs:ro
     command:
-      # Tells the tool exactly where to look for the host's hardware files
       - '--path.procfs=/host/proc'
       - '--path.rootfs=/rootfs'
       - '--path.sysfs=/host/sys'
-      # Prevents "junk" data from virtual Docker filesystems from filling up your graphs
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
     networks: [monitoring]
 
-  # =========================
-  # OpenTelemetry Collector
-  # =========================
-  # Define the OpenTelemetry Collector service
+# =========================
+# OpenTelemetry Collector - Trace & Metrics Collection
+# =========================
   otel-collector:
-    # IMAGE: 'contrib' version includes the AWS and Prometheus exporters you need.
     image: otel/opentelemetry-collector-contrib:0.111.0
-    # Set a fixed container name for easier networking (app refers to this name)
     container_name: otel-collector
-    # CONFIG OVERRIDE: Tells the collector to ignore defaults and use your custom logic file.
     command: ["--config=/etc/otel-config.yaml"]
-    # Map your local config file into the container's default config path
     volumes:
-      # MOUNT: Connects your local config file into the container's internal path (read-only).
       - ./infra/otel/otel-config.yaml:/etc/otel-config.yaml:ro
-      # Mounts your PC's AWS credentials so the collector can "log in" to AWS locally
-      # We mount to /root/.aws because this image usually runs as the root user
-    #   - ~/.aws:/root/.aws:ro 
-    # environment:
-    #   # Matches the [profile name] inside your ~/.aws/credentials file (e.g., default)
-    #   - AWS_PROFILE=tf-project  
-    #   # The AWS data center where your CloudWatch metrics will be sent
-    #   - AWS_REGION=ca-central-1
     ports:
-      # OTLP HTTP (4318): This is where your OTLP HTTP receiver 'tracer.js' sends traces.
-      # or (where your Node app sends traces)
-      - "4318:4318" 
-      # OTLP gRPC (4317): Used for high-performance logging or other SDKs.
+      - "4318:4318"
       - "4317:4317"
-      # HEALTH (13133): Used by Docker to see if the collector has crashed.
-      # Internal health check port (used by the 'healthcheck' block below)
-      - "13133:13133" 
-      # Receiver for EMF Metrics from your app (TCP packet push)
-      - "25888:25888" 
-      # internal metrics
-      - "8888:8888"    
+      - "13133:13133"
+      - "25888:25888"
+      - "8888:8888"
     healthcheck:
-      # SPIDER: A "quiet" check to see if the internal health endpoint is reachable.
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:13133/"]
-      # How often to run the check (every 5 seconds)
       interval: 5s
-      # How long to wait for a response before considering it a failure
       timeout: 5s
-      # Number of consecutive failures before the container is marked 'unhealthy'
       retries: 3
     networks:
       - monitoring
-    # Ensures Docker restarts the collector if it crashes
     restart: unless-stopped
-    # OTEL Collector exports traces to Tempo.
-    # This dependency is optional because the collector retries if Tempo is unavailable.
-    # We add it mainly to avoid startup connection errors and make local startup cleaner.
     depends_on:
       - tempo
 
-
-  # =========================
-  # Tempo (Distributed Traces Storage)
-  # =========================
-  # Tempo is a high-volume, low-cost storage engine for your application traces.
-  # It allows you to search for specific Request IDs to see a visual timeline of the execution.
+# =========================
+# Tempo - Distributed Tracing Storage
+# =========================
   tempo:
-    # Use the official Grafana Tempo image (Version 2.6.0 is stable and OTel-ready)
     image: grafana/tempo:2.6.0
-    # Static name for easy internal networking (e.g., otel-collector:4317 -> tempo:4317)
     container_name: tempo
-    # CONFIG: Tells Tempo to start using our custom configuration file instead of defaults
     command: [ "-config.file=/etc/tempo.yaml" ]
     ports:
-      # UI/API (3200): This is the URL you put in your Grafana Datasource YAML.
-      - "3200:3200"   
-      # OTLP INTAKE PORT MAPPING: Maps host port 4320 to Tempo's internal OTLP gRPC 4317.
-      # AVOID CONFLICT: We use 4320 on the host because the OTel-Collector is 
-      # already using host port 4317 for its own intake.
-      - "4320:4317"   
+      - "3200:3200"
+      - "4320:4317"
     volumes:
-      # CONFIGURATION: Mounts your local YAML settings into the container (Read-Only)
       - ./infra/tempo/tempo-config.yaml:/etc/tempo.yaml:ro
-      # DATA STORAGE: Persists your traces so they aren't lost when the container restarts
       - tempo_data:/var/tempo
-    # Connects Tempo to the same 'monitoring' network as the OTel Collector and Grafana
     networks:
       - monitoring
-    # Ensures Docker restarts the collector if it crashes
     restart: unless-stopped
     healthcheck:
-      # Command Docker runs to verify the container is healthy
-      # "CMD" means run the command directly (without a shell)
-      # wget --spider performs a lightweight HTTP request without downloading content
-      # -q suppresses output so logs stay clean
-      # If http://localhost:3200/ready returns HTTP 200, the container is considered healthy
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:3200/ready"]
-      # Docker runs the health check every 10 seconds
       interval: 10s
-      # If the command takes longer than 5 seconds, Docker considers that attempt a failure
       timeout: 5s
-      # Docker will retry the health check up to 5 times before marking the container as unhealthy
       retries: 5
-      # Gives Tempo 30 seconds to fully start before health checks begin
-      # This prevents Docker from marking it unhealthy during startup
       start_period: 30s
 
-  # =========================
-  # Jaeger (Distributed Tracing Backend)
-  # =========================
-  # Stores and visualizes traces collected from the OTEL Collector.
+# =========================
+# Jaeger - Alternative Tracing Backend
+# =========================
   jaeger:
-    # Use Docker Hub for better reliability; '2.15.1' is the stable v2 release.
     image: jaegertracing/jaeger:2.15.1
-    # Fixed container name for easier debugging and networking
     container_name: jaeger
-    user: "0:0"  # <--- Add this to bypass permission issues in the volume
+    user: "0:0"
     ports:
-      # Port 16686: Host port mapping to access the Jaeger Search UI in your browser.
-      - "16686:16686"  
-      # Port 4333: Host port 4333 maps to container 4317 (Standard OTLP gRPC ingestion).
-      - "4333:4317"  
-      # Expose the new metrics port; allows Prometheus to scrape internal Jaeger performance data
-      - "8889:8889"    
+      - "16686:16686"
+      - "4333:4317"
+      - "8889:8889"
     volumes:
-      # Maps your local YAML config into the container as Read-Only.
       - ./infra/jaeger/jaeger-config.yaml:/etc/jaeger/config.yaml:ro
-      # Persistent storage for trace data (Badger database)
-      # Prevents data loss when the container restarts
       - jaeger_data:/var/lib/jaeger/badger:rw
-    # 'command': Start Jaeger with the provided configuration file
     command: ["--config", "/etc/jaeger/config.yaml"]
-    # Ensures Docker restarts the collector if it crashes
-    restart: unless-stopped 
+    restart: unless-stopped
     networks:
-      # Places Jaeger in the 'monitoring' network for internal service communication.
       - monitoring
     healthcheck:
-      # Jaeger exposes a health endpoint used by Docker to verify readiness
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:16686"]
-      interval: 10s      # Check every 10 seconds
-      timeout: 5s        # Fail if no response within 5 seconds
-      retries: 5         # Mark unhealthy after 5 failed checks
-      start_period: 20s  # Allow time for Jaeger to fully start
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
-  # =========================
-  # Grafana (Dashboard)
-  # =========================
-  # -- GRAFANA: Visualization & Monitoring UI --
+# =========================
+# Grafana - Visualization & Dashboards
+# =========================
   grafana:
-    # Use the official production-ready image
     image: grafana/grafana:12.3.3
     container_name: grafana
-    # Map to 3001 to avoid port collisions with common Node.js defaults
     ports:
       - "3001:3000"
     volumes:
-      # PERSISTENCE: Stores created dashboards, users, and plugins across restarts
-      - grafana_data:/var/lib/grafana  
-      # 1. PROVISIONING: Maps your datasource and dashboard provider YAML files
-      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro  
-      # 2. DASHBOARDS: Maps the actual JSON files that define the dashboard visuals
-      # Note: Ensure your provider.yaml in 'provisioning/dashboards' points to this internal path
+      - grafana_data:/var/lib/grafana
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
-    # HEALTH CHECK:Ensures Grafana only starts once the data source (Prometheus&loki) are ready
-    # Grafana queries Loki (logs) and Tempo (traces) and prometheus(metrics).
-    # Waiting ensures the data sources are available when Grafana starts.
     depends_on:
       loki:
         condition: service_healthy
@@ -292,95 +167,68 @@ services:
         condition: service_healthy
       prometheus:
         condition: service_healthy
-    # NETWORK: Join the isolated monitoring bridge to communicate with Loki/Prometheus
     networks:
       - monitoring
-    # RESTART POLICY: Ensures the UI comes back up if the Docker daemon or host reboots
     restart: unless-stopped
 
-
-  # =========================
-  # Loki (Logs Storage)
-  # =========================
-  # it stores and indexes your log data
+# =========================
+# Loki - Log Aggregation Storage
+# =========================
   loki:
     image: grafana/loki:3.6.5
     container_name: loki
-    # Mount necessary volumes
     volumes:
-      # Persistent storage for your log data
       - loki_data:/loki
-      # Mount your local loki-config.yaml into the container
-      - ./infra/loki/loki-config.yaml:/etc/loki/local-config.yaml 
-    # This command tells Loki to look at the file we just mounted
+      - ./infra/loki/loki-config.yaml:/etc/loki/local-config.yaml
     command: -config.file=/etc/loki/local-config.yaml
-    # -- HEALTHCHECK: Verifies Loki is ready to receive data --
     healthcheck:
-      # "CMD" runs the binary directly, bypassing the need for /bin/sh (which is missing)
-      # "-health" is the built-in flag that checks the /ready endpoint internally
-      test: ["CMD", "/usr/bin/loki", "-health"]    
-      # How often to run the check
-      interval: 10s    
-      # How long to wait for the check to respond before failing
-      timeout: 5s    
-      # How many consecutive failures before marking the container "unhealthy"
-      retries: 5   
-      # Give Loki time to boot up before the first health check starts
+      test: ["CMD", "/usr/bin/loki", "-health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
       start_period: 15s
     ports:
-      - "3100:3100"  # Exposes Loki API and web interface  
-    # Ensures that if your computer reboots or Docker crashes, Loki starts back up automatically.
+      - "3100:3100"
     restart: unless-stopped
     networks:
       - monitoring
 
-  # =========================
-  # Promtail (Logs Forwarder)
-  # =========================
-  # It "tails" (reads) log files and pushes them to Loki's API
+# =========================
+# Promtail - Log Forwarder
+# =========================
   promtail:
-    # Uses the official latest image from Grafana's repository
     image: grafana/promtail:3.6.5
-    # Static name for easy management via 'docker stop/restart promtail'
-    container_name: promtail 
+    container_name: promtail
     environment:
-      - TZ=America/Toronto # Tells the Node process exactly which zone to use
+      - TZ=America/Toronto
     ports:
-      - "9080:9080"   
+      - "9080:9080"
     volumes:
-      # CONFIGURATION: Mounts your local YAML settings into the container's default config path
-      - ./infra/promtail/promtail-config.yaml:/etc/promtail/config.yml:ro     
-      # DATA SOURCE: Mounts your Node.js app's log folder into Promtail's search path
-      # ':ro' (Read-Only) ensures Promtail can read logs but cannot delete or modify them
-      - ./app-logs:/var/log/node-app:ro    
-      # POSITIONS: Persists Promtail's "bookmark" so if it restarts, it doesn't resend old logs
-      # This prevents duplicate logs in your Grafana dashboards
-      - promtail_data:/tmp/   
-    # ENTRYPOINT: Explicitly tells Promtail which configuration file to execute on startup
-    command: -config.file=/etc/promtail/config.yml 
-    # NETWORK: Joins the 'monitoring' bridge to talk to the 'loki' container via its service name
+      - ./infra/promtail/promtail-config.yaml:/etc/promtail/config.yml:ro
+      - ./app-logs:/var/log/node-app:ro
+      - promtail_data:/tmp/
+    command: -config.file=/etc/promtail/config.yml
     networks:
-      - monitoring   
-    # RESILIENCE: Automatically restarts the agent if the Docker daemon or the host reboots
+      - monitoring
     restart: unless-stopped
-    # Promtail ships logs to Loki.
-    # It waits for Loki to avoid connection errors while Loki is starting.
     depends_on:
       loki:
         condition: service_healthy
 
-
-# Define the isolated "room" where all these containers can talk to each other
+# =========================
+# Networks
+# =========================
 networks:
   monitoring:
     driver: bridge
 
-
-# Define the "hard drives" that keep data safe even if containers are deleted
+# =========================
+# Volumes - Persistent Storage
+# =========================
 volumes:
   prometheus_data:
   grafana_data:
   promtail_data:
   loki_data:
   tempo_data:
-  jaeger_data: 
+  jaeger_data:

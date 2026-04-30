@@ -1,29 +1,9 @@
-// =============================================================================
-// INDEX.JS - MAIN APPLICATION ENTRY POINT
-// PURPOSE:
-// - Bootstraps the application
-// - Initializes observability (Tracing, Logging, Metrics)
-// - Defines API routes
-// - Handles health checks for Kubernetes
-// - Ensures graceful shutdown
-// =============================================================================
 
-
-// =============================================================================
-// CRITICAL: LOAD TRACING FIRST
-// -----------------------------------------------------------------------------
-// This MUST be the FIRST line of code.
-// OpenTelemetry auto-instrumentation hooks into modules (http, express, etc).
-// If you import anything before this, tracing WILL NOT work properly.
-// =============================================================================
 require('./tracer');
 
 
 // =============================================================================
 // LOAD ENVIRONMENT CONFIGURATION
-// -----------------------------------------------------------------------------
-// Determines which environment config file to load (.env.development, etc)
-// This ensures different configs per environment (dev, prod).
 // =============================================================================
 const env = process.env.NODE_ENV || 'development';
 require('dotenv').config({ path: `.env.${env}` });
@@ -113,8 +93,6 @@ app.get('/', (req, res) => {
 // - Logs (Winston → Loki)
 // - Metrics (Prometheus)
 // - Traces (Tempo)
-//
-// Every request passes through here.
 // =============================================================================
 app.use((req, res, next) => {
 
