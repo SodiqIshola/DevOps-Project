@@ -1,231 +1,61 @@
-# ---------------------------------------------------
-# SECTION 1 — TEMPO SERVER
-# ---------------------------------------------------
-# This defines the HTTP API that Grafana uses to query Tempo.
+
 server:
-  # The port Grafana connects to for querying traces and metrics.
   http_listen_port: 3200
 
 
-# ---------------------------------------------------
-# SECTION 2 — DISTRIBUTOR (Trace Ingestion)
-# ---------------------------------------------------
-# The distributor receives traces from OpenTelemetry collectors or apps.
+
 distributor:
   receivers:
     otlp:
       protocols:
-
-        # gRPC OTLP receiver
-        # Most OpenTelemetry SDKs send traces here by default.
         grpc:
           endpoint: "0.0.0.0:4317"
-
-        # HTTP OTLP receiver
-        # Used by browser-based telemetry or HTTP exporters.
         http:
           endpoint: "0.0.0.0:4318"
 
 
-# ---------------------------------------------------
-# SECTION 3 — INGESTER
-# ---------------------------------------------------
-# The ingester temporarily buffers traces in memory
-# before writing them into permanent storage blocks.
 ingester:
-
-  # How long Tempo buffers traces before flushing to storage.
-  # Shorter duration = faster visibility but more disk writes.
   max_block_duration: 5m
 
-
-# ---------------------------------------------------
-# SECTION 4 — STORAGE (Trace Database)
-# ---------------------------------------------------
-# Defines where Tempo stores trace blocks.
 storage:
   trace:
-
-    # Using local disk storage (best for Docker environments).
     backend: local
-
     local:
-      # Directory where Tempo stores finalized trace blocks.
       path: /var/tempo/traces
-
     wal:
-      # Write-Ahead Log ensures traces aren't lost if Tempo crashes.
       path: /var/tempo/wal
-
     block:
-      # Modern block format required for TraceQL queries.
       version: vParquet4
 
-
-# ---------------------------------------------------
-# SECTION 5 — QUERY ENGINE
-# ---------------------------------------------------
-# Enables Tempo's search API used by Grafana Explore.
 querier:
   search:
-    # Empty list means Tempo handles searches internally.
     external_endpoints: []
 
-
-# ---------------------------------------------------
-# SECTION 6 — COMPACTOR
-# ---------------------------------------------------
-# The compactor cleans up old trace blocks
-# and merges smaller blocks for efficiency.
 compactor:
   compaction:
-
-    # How long traces remain before deletion.
-    # After this time they are permanently removed.
     block_retention: 48h
 
-
-# ---------------------------------------------------
-# SECTION 7 — METRICS GENERATOR
-# ---------------------------------------------------
-# Converts traces into Prometheus metrics.
-#
-# These metrics power:
-#  - Grafana Service Map
-#  - Request rate panels
-#  - Error rate panels
-#  - Latency panels
 metrics_generator:
-
-  # Metadata labels added to every generated metric.
   registry:
     external_labels:
       source: tempo
 
-  # Storage for metrics generator write-ahead log.
   storage:
-    # Directory used for metrics generator WAL
     path: /var/tempo/generator/wal
 
-    # Where to push the calculated metrics once they are generated
-    # FIXED: If 'remote_write' still fails, ensure your Tempo image is v2.0 or higher.
     remote_write:
-      # The HTTP endpoint of your Prometheus-compatible database
       - url: http://prometheus:9090/api/v1/write
-        # Enables linking specific metrics to traces via TraceIDs
         send_exemplars: true
 
-  # Processors define what metrics are created from spans.
   processor:
-
-    # Generates service-to-service dependency graphs.
-    # Required for Grafana Service Map panel.
     service_graphs: {}
-
-    # Generates RED metrics from spans:
-    # Rate, Errors, Duration.
     span_metrics: {}
 
-
-# ---------------------------------------------------
-# SECTION 8 — GLOBAL FEATURE OVERRIDES
-# ---------------------------------------------------
-# Enables processors for all tenants.
 overrides:
   defaults:
     metrics_generator:
-
-      # Activates both service graph and span metric processors.
       processors:
         - service-graphs
         - span-metrics
 
 
-
-
-
-
-# # --- SECTION 1: SERVER CONFIG ---
-# # This sets up the internal API for Tempo to talk to Grafana.
-# server:
-#   # UI/API PORT: This is the port Grafana uses to query traces (http://tempo:3200).
-#   http_listen_port: 3200
-
-# # --- SECTION 2: DISTRIBUTOR (The Inbound Door) ---
-# # THE LISTENER: This is the "Intake Engine" that waits for data to arrive.
-# # LOGIC: It must listen on the EXACT port enabled in your OTel Collector's exporter.
-# distributor:
-#   receivers:                           
-#     otlp:                              
-#       protocols:
-#         # Port 4317 (gRPC): This is the active "Listening" port for your pipeline.
-#         grpc:                          
-#           endpoint: "0.0.0.0:4317"
-#         # Port 4318 (HTTP): Secondary listener for web-compatible tracing.
-#         http:                          
-#           endpoint: "0.0.0.0:4318"
-
-# # INGESTER: Acts as a "Waiting Room" for traces before they are written to disk.
-# ingester:
-#   # FLUSH WINDOW: Tempo buffers data in RAM and writes it to storage every 5m.
-#   max_block_duration: 5m 
-
-# # --- SECTION 3: STORAGE (The "Database") ---
-# # Defines where the trace data lives so it survives a container restart.
-# storage:
-#   trace:
-#     # BACKEND: 'local' is perfect for Docker Compose (S3/GCS is for Cloud).
-#     backend: local                     
-#     local:
-#       # TRACE PATH: The permanent home for your trace blocks inside the container.
-#       path: /var/tempo/traces         
-#     wal:
-#       # WRITE-AHEAD LOG: A "scratchpad" that saves incoming traces immediately.
-#       path: /var/tempo/wal 
-#     # vParquet4 is the modern format required for TraceQL searching
-#     block:
-#       version: vParquet4    
-
-# # --- SECTION 4: QUERIER ---
-# # Enables the backend engine that powers the Grafana Search tab.
-# querier:
-#   search:
-#     # REMOVED: max_duration (Caused 'field not found' error in newer versions).
-#     external_endpoints: []
-
-# # --- SECTION 5: COMPACTOR ---
-# # The "Janitor" that prevents your Docker volumes from filling up your hard drive.
-# compactor:
-#   compaction:
-#     # RETENTION: Automatically deletes traces after 48 hours. 
-#     block_retention: 48h    
-
-# # --- SECTION 6: METRICS GENERATOR ---
-# # The primary engine that converts incoming trace spans into time-series data
-# metrics_generator:
-#   # Configuration for the internal Prometheus registry
-#   registry:
-#     # Key-value pairs added to every metric to identify its origin
-#     external_labels:
-#       source: tempo
-#   # Local disk settings for data safety
-#   storage:
-#     # Directory where the Write-Ahead Log (WAL) is stored
-#     path: /var/tempo/generator/wal
-#     # Where to push the calculated metrics once they are generated
-#     # FIXED: If 'remote_write' still fails, ensure your Tempo image is v2.0 or higher.
-#     remote_write:
-#       # The HTTP endpoint of your Prometheus-compatible database
-#       - url: http://prometheus:9090/api/v1/write
-#         # Enables linking specific metrics to traces via TraceIDs
-#         send_exemplars: true
-
-# # --- SECTION 7: OVERRIDES ---
-# # Global or per-tenant settings that activate specific Tempo features
-# overrides:
-#   # Settings applied by default to all ingested data
-#   defaults:
-#     # Specific configuration to toggle the generator's internal logic
-#     metrics_generator:
-#       # Activates 'service-graphs' (maps) and 'span-metrics' (RED metrics) logic
-#       processors: [service-graphs, span-metrics]
