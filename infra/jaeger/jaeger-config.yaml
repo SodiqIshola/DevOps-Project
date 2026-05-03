@@ -2,79 +2,69 @@
 # JAEGER V2 CONFIGURATION (Based on OpenTelemetry Collector Architecture)
 # ==============================================================================
 
-# 1. SERVICE: The "Command Centre" that activates and monitors all components.
 service:
-  # 'extensions' tells Jaeger which extra tools to turn on. 
-  # We need storage for data, query for the UI, and healthcheck for status.
   extensions: [jaeger_storage, jaeger_query, healthcheckv2]
   
-  # 'pipelines' define the "conveyor belt" for your data.
-  # Data comes in (Receivers), gets organized (Processors), and is saved (Exporters).
   pipelines:
     traces:
-      receivers: [otlp]             # 1. Listen for traces using OTLP standard.
-      processors: [batch]            # 2. Bundle many small traces into one "box" to save CPU/Disk.
-      exporters: [jaeger_storage_exporter] # 3. Save that box into the database.
+      receivers: [otlp]             
+      processors: [batch]            
+      exporters: [jaeger_storage_exporter] 
 
-  # 'telemetry' is how Jaeger monitors itself. It creates metrics about its own health.
   telemetry:
     resource:
-      service.name: jaeger          # Name of this service when it shows up in Prometheus.
+      service.name: jaeger          
     metrics:
-      level: detailed               # Provides deep info (like exactly how many spans were saved).
+      level: detailed               
       readers:
-        - pull:                     # Prometheus "pulls" data from this port.
+        - pull:                     
             exporter:
               prometheus:
                 host: 0.0.0.0
-                port: 8889          # CHANGED TO 8889: Avoids conflict with OTel Collector on 8888.
+                port: 8889          
     logs:
-      level: info                   # Normal logging. Use 'debug' only if things are breaking.
+      level: info                   
 
-# 2. EXTENSIONS: Jaeger-specific modules that provide the database and the UI.
+
 extensions:
-  # 'healthcheckv2' provides a simple URL to check if the container is alive/crashed.
+  
   healthcheckv2:
     use_v2: true
     http:
 
-  # 'jaeger_query' is the Web Server for the Search UI (the dashboard you see in Chrome).
   jaeger_query:
     storage:
-      traces: some_store            # Tell the UI to read data from our 'some_store' backend.
+      traces: some_store            
     http:
-      endpoint: 0.0.0.0:16686       # The Web UI port (http://localhost:16686).
+      endpoint: 0.0.0.0:16686       
     grpc:
-      endpoint: 0.0.0.0:16685       # The API port for other programs to talk to Jaeger.
+      endpoint: 0.0.0.0:16685       
 
-  # 'jaeger_storage' manages the actual database connection (Badger).
   jaeger_storage:
     backends:
-      some_store:                   # This is just a nickname we gave to our database.
-        badger:                     # Use the Badger database (a fast, single-file DB).
-          ephemeral: false          # Set to 'false' so data stays on your disk after a restart.
+      some_store:                   
+        badger:                     
+          ephemeral: false          
           directories:
-            keys: "/var/lib/jaeger/badger/key"    # Where the "Search Index" is saved.
-            values: "/var/lib/jaeger/badger/data" # Where the actual "Trace Data" is saved.
+            keys: "/var/lib/jaeger/badger/key"    
+            values: "/var/lib/jaeger/badger/data" 
           ttl:
-            spans: 72h              # Time-To-Live: Automatically delete data older than 3 days.
-          metrics_update_interval: 10s # How often the DB reports its health metrics.
+            spans: 72h              
+          metrics_update_interval: 10s 
 
-# 3. RECEIVERS: The "Doors" that let data into Jaeger from your applications.
+
 receivers:
   otlp:
     protocols:
       grpc:
-        endpoint: 0.0.0.0:4317       # Fastest way to send data. Used by most backend apps.
+        endpoint: 0.0.0.0:4317       
       http:
-        endpoint: 0.0.0.0:4318       # Standard web-style way. Used by Browsers or Python/JS apps.
+        endpoint: 0.0.0.0:4318       
 
-# 4. PROCESSORS: The "Logic" applied to data while it's in memory.
+
 processors:
-  batch:                            # Collects traces in memory and writes them in chunks.
-                                    # This prevents the database from getting overwhelmed.
+  batch:                            
 
-# 5. EXPORTERS: The "Outgoing Mail" that sends data to its final destination.
 exporters:
-  jaeger_storage_exporter:          # This is the "bridge" between the pipeline and the DB.
-    trace_storage: some_store       # Sends the data specifically to the 'some_store' backend.
+  jaeger_storage_exporter:          
+    trace_storage: some_store
