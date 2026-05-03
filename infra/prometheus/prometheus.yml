@@ -1,88 +1,48 @@
-# --- SECTION 1: GLOBAL SETTINGS ---
-# my global config: This section sets the general settings for prometheus 
+
 global:
-  # Prometheus will collect metrics every 15 seconds from each target
   scrape_interval: 15s 
-  # Evaluate rules every 15 seconds. The default is every 1 minute.
   evaluation_interval: 15s 
 
-
-# --- SECTION 2: LOAD ALERT RULES ---
 rule_files:
-  - "alerts.yml"  # Tells Prometheus to read your Jaeger/OTel alerts
+  - "alerts.yml"  
 
-
-# --- SECTION 3: SCRAPE JOBS ---
-# A scrape configuration tell prometheus what applications to monitor
 scrape_configs:
-  # Block for gathering performance data about the Prometheus server itself
   - job_name: "prometheus"
-    # Configuration for targets that do not change dynamically
     static_configs:
-      # Internal address and port where Prometheus exposes its own health metrics
       - targets: ["prometheus:9090"]
-        # Metadata attached to every metric to identify the source in dashboards
         labels:
-          # Tags these metrics with the application name "prometheus"
           app: "prometheus"
 
-  # Block for gathering custom metrics from your specific Node.js application
   - job_name: "node-app"
-    # Configuration for a fixed set of network addresses to monitor
     static_configs:
-      # Address and port of your Node.js container (where prom-client is likely running)
       - targets: ["node-app:3000"]
-        # Metadata used to filter and group these metrics later in Grafana
         labels:
-          # Tags these metrics as belonging to your "node-app"
           app: "node-app"
 
-
-  # OTel Collector Internal Health (Optional)
-  # Port 8888 is where the collector itself reports how it is performing.
-  # Defines a unique name for this scrape job; it will appear as the 'job' label on all metrics.
   - job_name: "otel-collector-internal"
-    # Specifies a manual list of targets to scrape rather than using dynamic service discovery.
     static_configs:
-      # The network address (hostname/IP and port) where Prometheus will fetch the metrics.
       - targets: ["otel-collector:8888"]
-        # A block to attach custom dimensions (key-value pairs) to every metric pulled from these targets.
         labels:
-          # Assigns a constant 'app' label to distinguish these internal self-metrics from actual trace/log data.
           app: "otel-collector-internal"
           component: 'collector'
   
-  # Job to monitor Jaeger's internal health (memory, span counts, disk usage)
   - job_name: 'jaeger-monitoring'
     static_configs:
-      # Maps to the Jaeger container name and the new telemetry port
       - targets: ['jaeger:8889']
         labels:
-          # Identifies these metrics as belonging to the Jaeger service
           service_name: 'jaeger-v2'
-          # Specifices the storage type being monitored
           storage_type: 'badger'
           app: "jaeger-monitoring"
 
-    # Block for gathering hardware and OS-level metrics (CPU, RAM, Disk) from the host/container
   - job_name: "node-exporter"
-    # Configuration for a fixed endpoint that doesn't change
     static_configs:
-      # Network address and default port where the Node Exporter agent is listening
       - targets: ["node-exporter:9100"]
-        # Metadata labels applied to all system metrics gathered from this target
         labels:
-          # Identifies these metrics as coming from the "node-exporter" service
           app: "node-exporter"
 
-
-  # Defines a scraping task to monitor the Tempo application itself
   - job_name: "tempo"
     static_configs:
-      # Points to the container named 'tempo' on port 3200 (Tempo's default HTTP port)
       - targets: ["tempo:3200"]
-        # Attaches a permanent metadata tag to every metric coming from this job
         labels:
-          # Identifies these metrics as belonging to the "tempo" system health
           app: "tempo"
 
