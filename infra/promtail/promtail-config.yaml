@@ -1,19 +1,14 @@
 
 # -- PROMTAIL CONFIGURATION --
-# This agent "tails" log files and ships them to Loki
 server:
-  # The port Promtail uses for its own health-check UI
   http_listen_port: 9080
-  # The port for internal GRPC communication
   grpc_listen_port: 0
 
-# POSITIONS: Remembers where it left off in a file so it doesn't resend old logs on restart
 positions:
   filename: /tmp/positions.yaml
 
 # CLIENTS: Defines where to send the gathered logs (Our Loki container)
 clients:
-  # Uses the Docker service name 'loki' and the standard push API path
   - url: http://loki:3100/loki/api/v1/push
 
 # SCRAPE_CONFIGS: Defines WHICH files to watch and HOW to label them
@@ -23,37 +18,31 @@ scrape_configs:
       - targets:
           - localhost
         labels:
-          # Identifies the application
           job: node-task-app
-          # MANUAL HOST LABEL: Identifies which machine/container sent the log
           host: node-app 
-          # The file location inside the Promtail container
           __path__: /var/log/node-app/*.log
 
 
     # PIPELINE_STAGES: Tailored for your Winston JSON format
     pipeline_stages:
-      # 1. Parse the JSON line to extract the 'timestamp' and 'level' fields
       - json:
           expressions:
             log_time: timestamp
             log_level: level
             log_service: service
 
-      # 2. Use the extracted 'log_time' as the official event time
+      # Use the extracted 'log_time' as the official event time
       - timestamp:
           source: log_time
-          # Winston's default timestamp format is ISO8601, which Promtail calls RFC3339
           format: RFC3339
-          # Ensures the parser understands Toronto time even if the string lacks a TZ offset
           location: "America/Toronto"
 
-      # 3. Promote the JSON 'level' and 'service' fields to searchable labels in Loki
+      # Promote the JSON 'level' and 'service' fields to searchable labels in Loki
       - labels:
           level: log_level
           service: log_service
 
-      # 4. Optional: Clean up the output in Grafana by making the main message the 'content'
+      # Clean up the output in Grafana by making the main message the 'content'
       - output:
           source: message
 
